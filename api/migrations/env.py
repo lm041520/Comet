@@ -10,7 +10,7 @@ from app.config import settings
 from app.db.postgres import Base
 
 # 导入所有模型，确保它们注册到 Base.metadata（autogenerate 需要）
-from app.models import user_model  # noqa: F401
+from app.models import model_config_model, user_model  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

@@ -1,15 +1,22 @@
-"""Redis 异步客户端。"""
+"""Redis 异步客户端（显式连接池 + 健康检查）。"""
 from redis import asyncio as aioredis
 
 from app.config import settings
 
+_pool: aioredis.ConnectionPool | None = None
 _client: aioredis.Redis | None = None
 
 
 def get_redis() -> aioredis.Redis:
-    global _client
+    global _pool, _client
     if _client is None:
-        _client = aioredis.from_url(settings.redis_url, decode_responses=True)
+        _pool = aioredis.ConnectionPool.from_url(
+            settings.redis_url,
+            decode_responses=True,
+            max_connections=settings.redis_max_connections,
+            health_check_interval=30,
+        )
+        _client = aioredis.Redis(connection_pool=_pool)
     return _client
 
 
@@ -21,7 +28,10 @@ async def ping() -> bool:
 
 
 async def close() -> None:
-    global _client
+    global _pool, _client
     if _client is not None:
         await _client.aclose()
         _client = None
+    if _pool is not None:
+        await _pool.disconnect()
+        _pool = None

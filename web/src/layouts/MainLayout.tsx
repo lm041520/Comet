@@ -6,6 +6,7 @@ import {
   DeploymentUnitOutlined,
   HddOutlined,
   LogoutOutlined,
+  SettingOutlined,
   UserOutlined,
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -20,6 +21,7 @@ const menuItems = [
   { key: '/knowledge', icon: <BookOutlined />, label: '知识库' },
   { key: '/memory', icon: <HddOutlined />, label: '记忆' },
   { key: '/graph', icon: <DeploymentUnitOutlined />, label: '知识图谱' },
+  { key: '/settings/models', icon: <SettingOutlined />, label: '模型配置' },
 ]
 
 export default function MainLayout() {
