@@ -130,7 +130,12 @@ class DocumentService:
         tags: list[str] | None,
     ) -> list[dict]:
         return await hybrid_search(
-            self.session, user_id, query, top_k=top_k, tags=tags
+            self.session,
+            user_id,
+            query,
+            top_k=top_k,
+            tags=tags,
+            source_type="document",
         )
 
     async def to_out_dict(self, doc: Document) -> dict:

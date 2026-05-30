@@ -14,8 +14,8 @@ export interface TagItem {
 }
 
 export const tagApi = {
-  list() {
-    return client.get<unknown, Wrapped<TagItem[]>>('/tags')
+  list(scope: 'all' | 'document' | 'image' = 'all') {
+    return client.get<unknown, Wrapped<TagItem[]>>(`/tags?scope=${scope}`)
   },
   update(id: string, payload: { name?: string; color?: string }) {
     return client.put<unknown, Wrapped<TagItem>>(`/tags/${id}`, payload)

@@ -11,11 +11,20 @@ class TagService:
     def __init__(self, session: AsyncSession):
         self.repo = TagRepository(session)
 
-    async def list_tags(self, user_id: uuid.UUID) -> list[dict]:
-        tags = await self.repo.list_by_user(user_id)
+    async def list_tags(
+        self, user_id: uuid.UUID, scope: str = "all"
+    ) -> list[dict]:
+        tags = await self.repo.list_by_scope(user_id, scope)
         result = []
         for t in tags:
-            count = await self.repo.count_documents(t.id)
+            if scope == "image":
+                count = await self.repo.count_images(t.id)
+            elif scope == "document":
+                count = await self.repo.count_documents(t.id)
+            else:
+                count = await self.repo.count_documents(
+                    t.id
+                ) + await self.repo.count_images(t.id)
             result.append(
                 {
                     "id": str(t.id),

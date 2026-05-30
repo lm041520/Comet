@@ -242,7 +242,7 @@ export default function KnowledgePage() {
             </Dragger>
 
             <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 8 }}>
-              <TagFilterBar active={activeTag} onChange={setActiveTag} />
+              <TagFilterBar active={activeTag} scope="document" onChange={setActiveTag} />
               <Segmented
                 options={['列表', '时间轴']}
                 value={view}

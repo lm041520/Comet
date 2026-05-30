@@ -8,14 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.llm.resolver import get_client_for_type, get_optional_client_for_type
 from app.core.logging import get_logger
-from app.core.rag.es_index import CHUNK_TYPE_CHILD, CHUNKS_INDEX
+from app.core.rag.es_index import CHUNK_TYPE_CHILD, CHUNK_TYPE_IMAGE, CHUNKS_INDEX
 from app.db.elastic import get_es
 
 logger = get_logger(__name__)
 
 # 融合权重
-_VECTOR_WEIGHT = 0.7
-_BM25_WEIGHT = 0.3
+_VECTOR_WEIGHT = 0.6
+_BM25_WEIGHT = 0.4
 
 
 def _normalize(scores: dict[str, float]) -> dict[str, float]:
@@ -35,17 +35,33 @@ async def hybrid_search(
     top_k: int = 5,
     recall_size: int = 20,
     tags: list[str] | None = None,
+    source_type: str | None = None,
 ) -> list[dict]:
-    """混合检索，返回 top_k 个结果（含 content / doc_name / source_id / score）。"""
+    """混合检索，返回 top_k 个结果（含 content / doc_name / source_id / score）。
+
+    source_type 可选 document / image，在 ES 召回阶段就过滤，避免跨类型互相淹没。
+    文档检索命中 child 子块（再取父块上下文）；图片检索命中 image_desc 块。
+    """
     es = get_es()
     uid = str(user_id)
 
+    # 文档用 child 子块；图片用 image_desc 块
+    if source_type == "image":
+        chunk_types = [CHUNK_TYPE_IMAGE]
+    elif source_type == "document":
+        chunk_types = [CHUNK_TYPE_CHILD]
+    else:
+        # 不限来源：同时检索文档子块和图片描述块
+        chunk_types = [CHUNK_TYPE_CHILD, CHUNK_TYPE_IMAGE]
+
     base_filter: list[dict] = [
         {"term": {"user_id": uid}},
-        {"term": {"chunk_type": CHUNK_TYPE_CHILD}},
+        {"terms": {"chunk_type": chunk_types}},
     ]
     if tags:
         base_filter.append({"terms": {"tags": tags}})
+    if source_type:
+        base_filter.append({"term": {"source_type": source_type}})
 
     # 1. 向量召回
     embed_client = await get_client_for_type(session, user_id, "embedding")

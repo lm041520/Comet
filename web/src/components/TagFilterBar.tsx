@@ -4,19 +4,20 @@ import { tagApi, type TagItem } from '@/api/tags'
 
 interface Props {
   active?: string
+  scope?: 'all' | 'document' | 'image'
   onChange: (tagName?: string) => void
 }
 
 /** 标签筛选条：点击某标签筛选，再点取消。单选。 */
-export default function TagFilterBar({ active, onChange }: Props) {
+export default function TagFilterBar({ active, scope = 'all', onChange }: Props) {
   const [tags, setTags] = useState<TagItem[]>([])
 
   useEffect(() => {
     tagApi
-      .list()
+      .list(scope)
       .then(({ data }) => setTags(data))
       .catch(() => setTags([]))
-  }, [])
+  }, [scope])
 
   if (!tags.length) return null
 

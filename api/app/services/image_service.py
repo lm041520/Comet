@@ -74,9 +74,10 @@ class ImageService:
     async def search(
         self, user_id: uuid.UUID, query: str, top_k: int
     ) -> list[dict]:
-        """图片语义检索：走 ES 混合检索，过滤 source_type=image。"""
-        hits = await hybrid_search(self.session, user_id, query, top_k=top_k * 2)
-        return [h for h in hits if h.get("source_type") == "image"][:top_k]
+        """图片语义检索：ES 召回阶段即限定 source_type=image。"""
+        return await hybrid_search(
+            self.session, user_id, query, top_k=top_k, source_type="image"
+        )
 
     async def delete(self, user_id: uuid.UUID, image_id: uuid.UUID) -> None:
         img = await self._get_or_404(user_id, image_id)

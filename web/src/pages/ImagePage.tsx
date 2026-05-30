@@ -224,7 +224,7 @@ export default function ImagePage() {
             </Upload.Dragger>
 
             <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 8 }}>
-              <TagFilterBar active={activeTag} onChange={setActiveTag} />
+              <TagFilterBar active={activeTag} scope="image" onChange={setActiveTag} />
               <Segmented
                 options={['网格', '时间轴']}
                 value={view}

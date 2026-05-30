@@ -53,6 +53,32 @@ class TagRepository:
         stmt = select(func.count()).where(document_tags.c.tag_id == tag_id)
         return int(await self.session.scalar(stmt) or 0)
 
+    async def count_images(self, tag_id: uuid.UUID) -> int:
+        stmt = select(func.count()).where(image_tags.c.tag_id == tag_id)
+        return int(await self.session.scalar(stmt) or 0)
+
+    async def list_by_scope(self, user_id: uuid.UUID, scope: str) -> list[Tag]:
+        """按使用范围列标签：document=有文档关联的，image=有图片关联的，all=全部。"""
+        if scope == "document":
+            stmt = (
+                select(Tag)
+                .join(document_tags, Tag.id == document_tags.c.tag_id)
+                .where(Tag.user_id == user_id)
+                .distinct()
+                .order_by(Tag.name)
+            )
+        elif scope == "image":
+            stmt = (
+                select(Tag)
+                .join(image_tags, Tag.id == image_tags.c.tag_id)
+                .where(Tag.user_id == user_id)
+                .distinct()
+                .order_by(Tag.name)
+            )
+        else:
+            stmt = select(Tag).where(Tag.user_id == user_id).order_by(Tag.name)
+        return list((await self.session.execute(stmt)).scalars().all())
+
     async def set_document_tags(
         self, document_id: uuid.UUID, tag_ids: list[uuid.UUID]
     ) -> None:
