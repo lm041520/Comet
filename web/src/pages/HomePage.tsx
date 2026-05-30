@@ -47,7 +47,7 @@ export default function HomePage() {
   }, [])
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+    <div style={{ maxWidth: 1400, margin: '0 auto' }}>
       {/* 欢迎横幅 */}
       <Card
         style={{

@@ -3,6 +3,7 @@
 所有 provider 走 OpenAI 兼容协议：
 - chat/multimodal：POST {base_url}/chat/completions
 - embedding：POST {base_url}/embeddings
+- rerank：POST {base_url}/rerank
 连接测试发一个最小请求，验证 key/base_url/model 是否可用。
 """
 import httpx
@@ -29,6 +30,16 @@ async def test_connection(
                     f"{base}/embeddings",
                     headers=headers,
                     json={"model": model_name, "input": "ping"},
+                )
+            elif type_ == "rerank":
+                resp = await client.post(
+                    f"{base}/rerank",
+                    headers=headers,
+                    json={
+                        "model": model_name,
+                        "query": "ping",
+                        "documents": ["doc"],
+                    },
                 )
             else:
                 # chat / multimodal 都用 chat/completions 最小请求

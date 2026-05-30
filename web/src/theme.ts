@@ -10,6 +10,7 @@ export const theme: ThemeConfig = {
     colorTextBase: '#171719',
     colorBgLayout: '#FAFAFA',
     borderRadius: 8,
+    fontSize: 16,
     fontFamily:
       "'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Microsoft YaHei', sans-serif",
     boxShadowSecondary:
@@ -19,7 +20,7 @@ export const theme: ThemeConfig = {
     Layout: {
       siderBg: '#ffffff',
       headerBg: '#ffffff',
-      headerHeight: 60,
+      headerHeight: 64,
       bodyBg: '#FAFAFA',
     },
     Menu: {
@@ -28,14 +29,15 @@ export const theme: ThemeConfig = {
       itemSelectedColor: '#155EEF',
       itemHoverBg: '#F7F7F7',
       itemColor: '#475467',
-      itemHeight: 44,
+      itemHeight: 48,
       itemMarginInline: 8,
+      fontSize: 16,
     },
     Card: {
       borderRadiusLG: 12,
     },
     Button: {
-      controlHeight: 38,
+      controlHeight: 40,
       fontWeight: 500,
     },
   },

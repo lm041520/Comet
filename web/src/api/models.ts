@@ -6,7 +6,7 @@ interface Wrapped<T> {
   data: T
 }
 
-export type ModelType = 'chat' | 'multimodal' | 'embedding'
+export type ModelType = 'chat' | 'multimodal' | 'embedding' | 'rerank'
 export type Provider = 'openai' | 'qwen' | 'doubao' | 'deepseek'
 
 export interface ModelConfigItem {

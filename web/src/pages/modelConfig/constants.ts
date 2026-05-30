@@ -4,12 +4,14 @@ export const TYPE_OPTIONS: { label: string; value: ModelType }[] = [
   { label: '对话模型', value: 'chat' },
   { label: '多模态模型', value: 'multimodal' },
   { label: 'Embedding 模型', value: 'embedding' },
+  { label: 'Rerank 模型', value: 'rerank' },
 ]
 
 export const TYPE_LABEL: Record<ModelType, string> = {
   chat: '对话',
   multimodal: '多模态',
   embedding: 'Embedding',
+  rerank: 'Rerank',
 }
 
 export const PROVIDER_OPTIONS: { label: string; value: Provider }[] = [
