@@ -90,7 +90,7 @@ services:
   worker:
     build: ./api
     container_name: comet-worker
-    command: celery -A app.celery_app.celery_app worker -l info -Q default,parse,memory --pool=threads --concurrency=10
+    command: celery -A app.celery_app.celery_app worker -l info -Q default,parse,memory,beat --pool=threads --concurrency=10
     env_file:
       - .env
     environment:
