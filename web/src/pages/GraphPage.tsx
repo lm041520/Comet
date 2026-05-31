@@ -20,6 +20,92 @@ function colorForKey(key: string, table: Map<string, string>): string {
   return table.get(key)!
 }
 
+// 力导向布局：相连节点吸引、所有节点排斥，迭代后形成自然的簇状分布（不再排成圆圈）。
+// 系数调到中等密度——既不挤成一团，也不散得太开。
+function forceLayout(
+  nodes: GraphNode[],
+  edges: { source: string; target: string }[],
+  width: number,
+  height: number,
+): Map<string, { x: number; y: number }> {
+  const pos = new Map<string, { x: number; y: number }>()
+  const cx = width / 2
+  const cy = height / 2
+  const N = nodes.length
+
+  // 初始：在中心附近小范围随机散布
+  nodes.forEach((n) => {
+    const a = Math.random() * 2 * Math.PI
+    const r = Math.random() * Math.min(width, height) * 0.3
+    pos.set(n.id, { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) })
+  })
+  if (N <= 1) return pos
+
+  const k = Math.sqrt((width * height) / N) * 1.25 // 理想边长，越大越松
+  const iterations = 320
+  let temp = Math.min(width, height) / 5
+
+  for (let it = 0; it < iterations; it++) {
+    const disp = new Map<string, { x: number; y: number }>()
+    nodes.forEach((n) => disp.set(n.id, { x: 0, y: 0 }))
+
+    // 排斥力
+    for (let i = 0; i < N; i++) {
+      const a = pos.get(nodes[i].id)!
+      const da = disp.get(nodes[i].id)!
+      for (let j = i + 1; j < N; j++) {
+        const b = pos.get(nodes[j].id)!
+        let dx = a.x - b.x
+        let dy = a.y - b.y
+        let dist = Math.sqrt(dx * dx + dy * dy)
+        if (dist < 0.01) {
+          dx = Math.random() - 0.5
+          dy = Math.random() - 0.5
+          dist = 0.01
+        }
+        const f = (k * k) / dist
+        const fx = (dx / dist) * f
+        const fy = (dy / dist) * f
+        da.x += fx
+        da.y += fy
+        const db = disp.get(nodes[j].id)!
+        db.x -= fx
+        db.y -= fy
+      }
+    }
+
+    // 吸引力（相连节点）
+    edges.forEach((e) => {
+      const a = pos.get(e.source)
+      const b = pos.get(e.target)
+      if (!a || !b) return
+      const dx = a.x - b.x
+      const dy = a.y - b.y
+      const dist = Math.sqrt(dx * dx + dy * dy) || 0.01
+      const f = (dist * dist) / k
+      const fx = (dx / dist) * f
+      const fy = (dy / dist) * f
+      disp.get(e.source)!.x -= fx
+      disp.get(e.source)!.y -= fy
+      disp.get(e.target)!.x += fx
+      disp.get(e.target)!.y += fy
+    })
+
+    // 应用位移（限温）+ 轻微向心力，防止离群节点飘太远
+    nodes.forEach((n) => {
+      const d = disp.get(n.id)!
+      const p = pos.get(n.id)!
+      const dl = Math.sqrt(d.x * d.x + d.y * d.y) || 0.01
+      p.x += (d.x / dl) * Math.min(dl, temp)
+      p.y += (d.y / dl) * Math.min(dl, temp)
+      p.x += (cx - p.x) * 0.008
+      p.y += (cy - p.y) * 0.008
+    })
+    temp *= 0.97
+  }
+  return pos
+}
+
 export default function GraphPage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const graphRef = useRef<Graph | null>(null)
@@ -98,33 +184,34 @@ export default function GraphPage() {
     })
     adjRef.current = adj
 
-    // 环形布局（可拖拽）。半径随节点数增长，节点更分散不挤在一起。
-    const count = data.nodes.length
-    const radius = Math.max(Math.min(width, height) / 2 - 60, count * 52)
-    const cx = width / 2
-    const cy = height / 2
+    // 力导向布局：相关节点聚成簇，整体中等密度（不再排成圆圈）
+    const pos = forceLayout(data.nodes, data.edges, width, height)
 
-    data.nodes.forEach((node, i) => {
-      const angle = (2 * Math.PI * i) / count
+    data.nodes.forEach((node) => {
+      const p = pos.get(node.id)!
       const key = node.community_id || `type:${node.type}`
       const color = colorForKey(key, colorTable)
-      // 圆形节点：直径按名称长度自适应，文字在圆内自动换行完整显示
-      const size = Math.max(70, Math.min(130, node.name.length * 13 + 34))
+      // 小尺寸圆角方块节点（固定大小，不随名称变化）+ 名称显示在节点下方
+      const size = 22
       graph.addNode({
         id: node.id,
-        x: cx + radius * Math.cos(angle) - size / 2,
-        y: cy + radius * Math.sin(angle) - size / 2,
+        x: p.x - size / 2,
+        y: p.y - size / 2,
         width: size,
         height: size,
-        shape: 'circle',
+        shape: 'rect',
         label: node.name,
         attrs: {
-          body: { fill: color, stroke: '#fff', strokeWidth: 2 },
+          body: { fill: color, stroke: '#fff', strokeWidth: 2, rx: 6, ry: 6 },
           label: {
-            fill: '#fff',
-            fontSize: 13,
-            fontWeight: 600,
-            textWrap: { width: size - 14, height: size - 12, ellipsis: false },
+            text: node.name,
+            fill: '#1D2129',
+            fontSize: 12,
+            fontWeight: 500,
+            refX: '50%',
+            refY: '130%',
+            textAnchor: 'middle',
+            textVerticalAnchor: 'top',
           },
         },
         data: node,

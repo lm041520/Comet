@@ -15,7 +15,7 @@ export default function MessageItem({ msg }: { msg: UiMessage }) {
   const onCopy = async () => {
     try {
       await navigator.clipboard.writeText(msg.content)
-      antdMessage.success('已复制 Markdown 原文')
+      antdMessage.success('已复制')
     } catch {
       antdMessage.error('复制失败')
     }
@@ -100,6 +100,21 @@ export default function MessageItem({ msg }: { msg: UiMessage }) {
             <MarkdownMessage content={msg.content || (msg.streaming ? '思考中…' : '')} />
           )}
         </div>
+
+        {/* 用户消息复制按钮（右对齐） */}
+        {isUser && msg.content && (
+          <div style={{ marginTop: 4, textAlign: 'right' }}>
+            <Button
+              size="small"
+              type="text"
+              icon={<CopyOutlined />}
+              onClick={onCopy}
+              style={{ color: '#667085', fontSize: 12 }}
+            >
+              复制
+            </Button>
+          </div>
+        )}
 
         {/* 引用来源 + 复制按钮（AI 消息） */}
         {!isUser && (
