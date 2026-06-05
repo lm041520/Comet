@@ -3,6 +3,7 @@ import {
   Badge,
   Button,
   Card,
+  Drawer,
   Empty,
   Form,
   Input,
@@ -12,8 +13,8 @@ import {
   Select,
   Space,
   Switch,
+  Table,
   Tag,
-  Tooltip,
   Typography,
   message,
 } from 'antd'
@@ -24,12 +25,14 @@ import {
   PlusOutlined,
   SyncOutlined,
   ThunderboltOutlined,
+  UnorderedListOutlined,
 } from '@ant-design/icons'
 import {
   mcpApi,
   type McpAuthType,
   type McpServer,
   type McpServerInput,
+  type McpToolMeta,
   type McpTransport,
 } from '@/api/mcp'
 
@@ -59,6 +62,8 @@ export default function McpServers() {
   const [busy, setBusy] = useState<string | null>(null)
   const [form] = Form.useForm<FormValues>()
   const authType = Form.useWatch('auth_type', form)
+  // 工具清单抽屉（默认关闭）
+  const [toolsDrawer, setToolsDrawer] = useState<McpServer | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -78,21 +83,31 @@ export default function McpServers() {
 
   const openCreate = () => {
     setEditing(null)
-    form.resetFields()
-    form.setFieldsValue({ transport: 'streamable_http', auth_type: 'none' })
     setModalOpen(true)
   }
 
   const openEdit = (s: McpServer) => {
     setEditing(s)
-    form.resetFields()
-    form.setFieldsValue({
-      name: s.name,
-      transport: s.transport,
-      url: s.url,
-      auth_type: s.auth_type,
-    })
     setModalOpen(true)
+  }
+
+  // Modal 内容渲染完成后再回填表单，避免打开瞬间表单实例未就绪导致空白
+  const onModalOpenChange = (open: boolean) => {
+    if (!open) return
+    if (editing) {
+      form.setFieldsValue({
+        name: editing.name,
+        transport: editing.transport,
+        url: editing.url,
+        auth_type: editing.auth_type,
+        token: undefined,
+        header: undefined,
+        key: undefined,
+      })
+    } else {
+      form.resetFields()
+      form.setFieldsValue({ transport: 'streamable_http', auth_type: 'none' })
+    }
   }
 
   const buildPayload = (v: FormValues): McpServerInput => {
@@ -175,6 +190,29 @@ export default function McpServers() {
     }
   }
 
+  const toolColumns = [
+    {
+      title: '名称',
+      dataIndex: 'name',
+      key: 'name',
+      width: 240,
+      render: (name: string) => <Tag color="blue">{name}</Tag>,
+    },
+    {
+      title: '描述',
+      dataIndex: 'description',
+      key: 'description',
+      render: (desc: string) =>
+        desc ? (
+          <Text style={{ fontSize: 13 }}>{desc}</Text>
+        ) : (
+          <Text type="secondary" style={{ fontSize: 13 }}>
+            （无描述）
+          </Text>
+        ),
+    },
+  ]
+
   return (
     <Card
       title={
@@ -201,9 +239,19 @@ export default function McpServers() {
           dataSource={servers}
           renderItem={(s) => {
             const badge = STATUS_BADGE[s.status] || STATUS_BADGE.unknown
+            const toolCount = s.tools_cache?.length ?? 0
             return (
               <List.Item
                 actions={[
+                  <Button
+                    key="tools"
+                    size="small"
+                    icon={<UnorderedListOutlined />}
+                    disabled={toolCount === 0}
+                    onClick={() => setToolsDrawer(s)}
+                  >
+                    工具清单（{toolCount}）
+                  </Button>,
                   <Button
                     key="test"
                     size="small"
@@ -265,6 +313,11 @@ export default function McpServers() {
                       <Text type="secondary" style={{ fontSize: 12 }}>
                         {s.url}
                       </Text>
+                      {toolCount === 0 && (
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          尚未同步工具，点「同步工具」拉取清单。
+                        </Text>
+                      )}
                       {s.status === 'error' && s.last_error && (
                         <Text type="danger" style={{ fontSize: 12 }}>
                           {s.last_error}
@@ -273,38 +326,38 @@ export default function McpServers() {
                     </Space>
                   }
                 />
-                {s.tools_cache && s.tools_cache.length > 0 ? (
-                  <Space size={[4, 4]} wrap>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      工具（{s.tools_cache.length}）：
-                    </Text>
-                    {s.tools_cache.map((t) => (
-                      <Tooltip key={t.name} title={t.description}>
-                        <Tag>{t.name}</Tag>
-                      </Tooltip>
-                    ))}
-                  </Space>
-                ) : (
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    尚未同步工具，点「同步工具」拉取清单。
-                  </Text>
-                )}
               </List.Item>
             )
           }}
         />
       )}
 
+      {/* 工具清单抽屉（默认关闭，点「工具清单」打开） */}
+      <Drawer
+        title={toolsDrawer ? `${toolsDrawer.name} · 工具清单` : '工具清单'}
+        open={!!toolsDrawer}
+        onClose={() => setToolsDrawer(null)}
+        width={560}
+      >
+        <Table<McpToolMeta>
+          rowKey="name"
+          size="small"
+          columns={toolColumns}
+          dataSource={toolsDrawer?.tools_cache ?? []}
+          pagination={false}
+        />
+      </Drawer>
+
       <Modal
         title={editing ? '编辑 MCP 服务' : '添加 MCP 服务'}
         open={modalOpen}
         onOk={onSubmit}
         onCancel={() => setModalOpen(false)}
-        destroyOnClose
+        afterOpenChange={onModalOpenChange}
         okText="保存"
         cancelText="取消"
       >
-        <Form form={form} layout="vertical" preserve={false}>
+        <Form form={form} layout="vertical">
           <Form.Item
             label="服务名称"
             name="name"
@@ -349,7 +402,7 @@ export default function McpServers() {
           )}
           {authType === 'api_key' && (
             <>
-              <Form.Item label="请求头名称" name="header" initialValue="X-API-Key">
+              <Form.Item label="请求头名称" name="header">
                 <Input placeholder="X-API-Key" />
               </Form.Item>
               <Form.Item
