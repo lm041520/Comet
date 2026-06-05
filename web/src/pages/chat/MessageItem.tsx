@@ -3,6 +3,7 @@ import { Button, Space, Tag, Tooltip, message as antdMessage } from 'antd'
 import { CopyOutlined, StarFilled, StarOutlined } from '@ant-design/icons'
 import MarkdownMessage from '@/components/MarkdownMessage'
 import { favoriteApi } from '@/api/favorites'
+import { AuthenticatedImage } from '@/components/AuthenticatedImage'
 import type { UiMessage } from './types'
 import { TOOL_META } from './types'
 
@@ -84,7 +85,7 @@ export default function MessageItem({ msg }: { msg: UiMessage }) {
           {isUser && msg.images && msg.images.length > 0 && (
             <Space wrap style={{ marginBottom: 8 }}>
               {msg.images.map((url, i) => (
-                <img
+                <AuthenticatedImage
                   key={i}
                   src={url}
                   alt=""

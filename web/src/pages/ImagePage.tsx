@@ -5,7 +5,6 @@ import {
   Card,
   Col,
   Empty,
-  Image,
   Input,
   Modal,
   Popconfirm,
@@ -24,6 +23,10 @@ import {
   type ImageSearchHit,
 } from '@/api/images'
 import { favoriteApi } from '@/api/favorites'
+import {
+  AuthenticatedAntdImage,
+  AuthenticatedImage,
+} from '@/components/AuthenticatedImage'
 import FavoriteButton from '@/components/FavoriteButton'
 import TagFilterBar from '@/components/TagFilterBar'
 import { groupByDate } from './knowledge/helpers'
@@ -69,7 +72,7 @@ function ImageCard({
           }}
           onClick={onClick}
         >
-          <img
+          <AuthenticatedImage
             src={img.url}
             alt={img.file_name}
             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
@@ -335,7 +338,7 @@ export default function ImagePage() {
         {detail && (
           <Row gutter={16}>
             <Col span={12}>
-              <Image src={detail.url} alt={detail.file_name} />
+              <AuthenticatedAntdImage src={detail.url} alt={detail.file_name} />
             </Col>
             <Col span={12}>
               <p style={{ fontWeight: 600 }}>AI 描述</p>
