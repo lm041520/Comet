@@ -15,7 +15,7 @@ import { favoriteApi } from '@/api/favorites'
 import { chatApi } from '@/api/chat'
 import { AuthenticatedImage } from '@/components/AuthenticatedImage'
 import type { UiMessage } from './types'
-import { resolveToolMeta } from './types'
+import { formatMsgTime, resolveToolMeta } from './types'
 
 export default function MessageItem({
   msg,
@@ -135,9 +135,17 @@ export default function MessageItem({
           )}
         </div>
 
-        {/* 用户消息复制按钮（右对齐） */}
+        {/* 用户消息复制按钮 + 时间（右对齐） */}
         {isUser && msg.content && (
-          <div style={{ marginTop: 4, textAlign: 'right' }}>
+          <div
+            style={{
+              marginTop: 4,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: 4,
+            }}
+          >
             <Button
               size="small"
               type="text"
@@ -147,6 +155,11 @@ export default function MessageItem({
             >
               复制
             </Button>
+            {msg.createdAt && (
+              <span style={{ fontSize: 12, color: '#B6BCC6' }}>
+                {formatMsgTime(msg.createdAt)}
+              </span>
+            )}
           </div>
         )}
 
@@ -212,6 +225,11 @@ export default function MessageItem({
                       style={{ color: '#667085', fontSize: 12 }}
                     />
                   </Tooltip>
+                )}
+                {msg.createdAt && (
+                  <span style={{ fontSize: 12, color: '#B6BCC6', marginLeft: 4 }}>
+                    {formatMsgTime(msg.createdAt)}
+                  </span>
                 )}
               </>
             )}

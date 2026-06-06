@@ -12,6 +12,23 @@ export interface UiMessage {
   conversationId?: string // 所属会话（收藏深链用）
   favId?: string | null // 已收藏时的收藏记录 id（高亮+取消用）
   feedback?: 'up' | 'down' | null // 当前用户对该 AI 消息的反馈
+  createdAt?: string // 消息时间（ISO 字符串）
+}
+
+// 格式化消息时间：今天显示 HH:mm，否则显示 月-日 HH:mm
+export function formatMsgTime(iso?: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const hh = `${d.getHours()}`.padStart(2, '0')
+  const mm = `${d.getMinutes()}`.padStart(2, '0')
+  const now = new Date()
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  if (sameDay) return `${hh}:${mm}`
+  return `${d.getMonth() + 1}-${d.getDate()} ${hh}:${mm}`
 }
 
 export const TOOL_META: Record<string, { icon: string; label: string }> = {

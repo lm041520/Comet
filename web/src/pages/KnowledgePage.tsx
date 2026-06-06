@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Button,
-  Card,
   Empty,
   Input,
   Modal,
@@ -9,8 +8,10 @@ import {
   Progress,
   Segmented,
   Space,
-  Table,
+  Spin,
   Tag,
+  Tooltip,
+  Typography,
   Upload,
   message,
 } from 'antd'
@@ -19,7 +20,6 @@ import {
   LinkOutlined,
   ReloadOutlined,
 } from '@ant-design/icons'
-import type { ColumnsType } from 'antd/es/table'
 import {
   documentApi,
   type DocumentItem,
@@ -28,7 +28,12 @@ import {
 import { favoriteApi } from '@/api/favorites'
 import FavoriteButton from '@/components/FavoriteButton'
 import TagFilterBar from '@/components/TagFilterBar'
-import { StatusTag, formatSize, groupByDate } from './knowledge/helpers'
+import {
+  FileTypeIcon,
+  StatusTag,
+  formatSize,
+  groupByDate,
+} from './knowledge/helpers'
 
 const { Dragger } = Upload
 const { Search } = Input
@@ -178,140 +183,139 @@ export default function KnowledgePage() {
     }
   }
 
-  const tagsCell = (tags: DocumentItem['tags']) =>
-    tags.length
-      ? tags.map((t) => (
-          <Tag key={t.name} color={t.color}>
-            {t.name}
-          </Tag>
-        ))
-      : '-'
-
-  const columns: ColumnsType<DocumentItem> = [
-    {
-      title: '文件名',
-      dataIndex: 'file_name',
-      render: (name, r) => (
-        <Space>
-          {name}
-          {r.source_type === 'url' && <Tag color="blue">网页</Tag>}
-        </Space>
-      ),
-    },
-    { title: '大小', dataIndex: 'file_size', width: 100, render: (s) => formatSize(s) },
-    { title: '标签', dataIndex: 'tags', render: tagsCell },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      width: 170,
-      render: (status, r) => (
-        <Space>
-          <StatusTag status={status} />
-          {status === 'parsing' && (
-            <Progress percent={Math.round(r.progress * 100)} size="small" style={{ width: 70 }} />
+  // 单条文档行（列表 / 时间轴共用）
+  const renderRow = (d: DocumentItem) => (
+    <div key={d.id} className="kb-row">
+      <div className="kb-row-icon">
+        <FileTypeIcon ext={d.file_ext} isUrl={d.source_type === 'url'} />
+      </div>
+      <div className="kb-row-main">
+        <div className="kb-row-title-line">
+          <span className="kb-row-title" title={d.file_name}>
+            {d.file_name}
+          </span>
+          {d.tags.map((t) => (
+            <Tag
+              key={t.name}
+              color={t.color}
+              style={{ margin: 0, borderRadius: 5 }}
+            >
+              {t.name}
+            </Tag>
+          ))}
+        </div>
+        <div className="kb-row-meta">
+          <StatusTag status={d.status} />
+          {d.status === 'parsing' && (
+            <Progress
+              percent={Math.round(d.progress * 100)}
+              size="small"
+              style={{ width: 90 }}
+            />
           )}
-          {status === 'done' && <span style={{ color: '#A8A9AA' }}>{r.chunk_num} 块</span>}
-        </Space>
-      ),
-    },
-    {
-      title: '操作',
-      key: 'action',
-      width: 180,
-      render: (_, r) => (
-        <Space size="small">
-          <FavoriteButton
-            targetType="document"
-            targetId={r.id}
-            initialFavId={favMap[r.id] ?? null}
-            snapshot={favSnapshot(r)}
-            onChange={onFavChange}
-          />
-          {r.status === 'failed' && (
-            <Button size="small" icon={<ReloadOutlined />} onClick={() => onRetry(r.id)}>
-              重试
-            </Button>
-          )}
-          <Popconfirm title="确定删除该文档？" onConfirm={() => onDelete(r.id)}>
-            <Button size="small" type="link" danger>
-              删除
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ]
+          {d.status === 'done' && <span>{d.chunk_num} 块</span>}
+          <span className="kb-dot">·</span>
+          <span>{d.source_type === 'url' ? '网页' : formatSize(d.file_size)}</span>
+        </div>
+      </div>
+      <div className="kb-row-actions">
+        <FavoriteButton
+          targetType="document"
+          targetId={d.id}
+          initialFavId={favMap[d.id] ?? null}
+          snapshot={favSnapshot(d)}
+          onChange={onFavChange}
+        />
+        {d.status === 'failed' && (
+          <Tooltip title="重新解析">
+            <Button
+              size="small"
+              type="text"
+              icon={<ReloadOutlined />}
+              onClick={() => onRetry(d.id)}
+            />
+          </Tooltip>
+        )}
+        <Popconfirm title="确定删除该文档？" onConfirm={() => onDelete(d.id)}>
+          <Button size="small" type="text" danger>
+            删除
+          </Button>
+        </Popconfirm>
+      </div>
+    </div>
+  )
 
   return (
     <div className="fluid-page">
-      <Card
-        title="知识库"
-        extra={
-          <Space>
-            <Button icon={<LinkOutlined />} onClick={() => setUrlModalOpen(true)}>
-              网页导入
-            </Button>
-          </Space>
-        }
-      >
-        <Search
-          placeholder="输入关键词语义检索（清空回到浏览）"
-          allowClear
-          enterButton="检索"
-          loading={searching}
-          onSearch={onSearch}
-          style={{ marginBottom: 16 }}
-        />
+      <div className="kb-header">
+        <div>
+          <Typography.Title level={3} style={{ margin: 0 }}>
+            知识库
+          </Typography.Title>
+          <Typography.Text type="secondary">
+            上传文档或导入网页，自动解析、分块、打标签，支持语义检索
+          </Typography.Text>
+        </div>
+        <Button icon={<LinkOutlined />} onClick={() => setUrlModalOpen(true)}>
+          网页导入
+        </Button>
+      </div>
 
-        {hits === null ? (
-          <>
-            <Dragger
-              accept=".pdf,.docx,.md,.markdown,.txt,.html,.htm"
-              showUploadList={false}
-              beforeUpload={onUpload}
-              multiple
-              style={{ marginBottom: 16 }}
-            >
-              <p className="ant-upload-drag-icon">
-                <InboxOutlined />
-              </p>
-              <p className="ant-upload-text">点击或拖拽文件到此区域上传</p>
-              <p className="ant-upload-hint">支持 PDF / Word / Markdown / TXT / HTML</p>
-            </Dragger>
+      <Search
+        placeholder="输入关键词语义检索（清空回到浏览）"
+        allowClear
+        enterButton="检索"
+        size="large"
+        loading={searching}
+        onSearch={onSearch}
+        style={{ marginBottom: 16 }}
+      />
 
-            <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 8 }}>
-              <TagFilterBar active={activeTag} scope="document" onChange={setActiveTag} />
-              <Segmented
-                options={['时间轴', '列表']}
-                value={view}
-                onChange={(v) => setView(v as ViewMode)}
+      {hits === null ? (
+        <>
+          <Dragger
+            accept=".pdf,.docx,.md,.markdown,.txt,.html,.htm"
+            showUploadList={false}
+            beforeUpload={onUpload}
+            multiple
+            className="kb-dragger"
+          >
+            <p className="ant-upload-drag-icon" style={{ marginBottom: 4 }}>
+              <InboxOutlined />
+            </p>
+            <p className="ant-upload-text" style={{ fontSize: 14 }}>
+              点击或拖拽文件到此上传
+            </p>
+            <p className="ant-upload-hint" style={{ fontSize: 12 }}>
+              支持 PDF / Word / Markdown / TXT / HTML
+            </p>
+          </Dragger>
+
+          <div className="kb-toolbar">
+            <TagFilterBar active={activeTag} scope="document" onChange={setActiveTag} />
+            <Segmented
+              options={['时间轴', '列表']}
+              value={view}
+              onChange={(v) => setView(v as ViewMode)}
+            />
+          </div>
+
+          <Spin spinning={loading}>
+            {list.length === 0 ? (
+              <Empty
+                style={{ padding: '48px 0' }}
+                description="还没有文档，上传一个试试"
               />
-            </Space>
-
-            {view === '列表' ? (
-              <Table
-                rowKey="id"
-                loading={loading}
-                columns={columns}
-                dataSource={list}
-                pagination={false}
-                locale={{ emptyText: <Empty description="还没有文档，上传一个试试" /> }}
-              />
+            ) : view === '列表' ? (
+              <div className="kb-list">{list.map(renderRow)}</div>
             ) : (
-              <Timeline
-                list={list}
-                tagsCell={tagsCell}
-                onDelete={onDelete}
-                favMap={favMap}
-                favSnapshot={favSnapshot}
-                onFavChange={onFavChange}
-              />
+              <Timeline list={list} renderRow={renderRow} />
             )}
-          </>
-        ) : (
-          <SearchResult hits={hits} onBack={() => setHits(null)} />
-        )}
-      </Card>
+          </Spin>
+        </>
+      ) : (
+        <SearchResult hits={hits} onBack={() => setHits(null)} />
+      )}
 
       <Modal
         title="从网页导入"
@@ -334,75 +338,22 @@ export default function KnowledgePage() {
 // 时间轴视图：按日期分组，竖线展示
 function Timeline({
   list,
-  tagsCell,
-  onDelete,
-  favMap,
-  favSnapshot,
-  onFavChange,
+  renderRow,
 }: {
   list: DocumentItem[]
-  tagsCell: (tags: DocumentItem['tags']) => React.ReactNode
-  onDelete: (id: string) => void
-  favMap: Record<string, string>
-  favSnapshot: (d: DocumentItem) => Record<string, unknown>
-  onFavChange: (id: string, favId: string | null) => void
+  renderRow: (d: DocumentItem) => React.ReactNode
 }) {
   if (!list.length) return <Empty description="暂无文档" />
   const groups = groupByDate(list)
   return (
-    <div style={{ paddingLeft: 8 }}>
+    <div className="kb-timeline">
       {groups.map((g) => (
-        <div key={g.date} style={{ position: 'relative', paddingLeft: 24, paddingBottom: 8 }}>
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 2,
-              background: '#e8e8e8',
-            }}
-          />
-          <div style={{ position: 'relative', marginBottom: 12 }}>
-            <div
-              style={{
-                position: 'absolute',
-                left: -29,
-                top: 4,
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                background: '#155EEF',
-              }}
-            />
-            <span style={{ fontWeight: 600, color: '#171719' }}>{g.date}</span>
+        <div key={g.date} className="kb-tl-group">
+          <div className="kb-tl-date">
+            <span className="kb-tl-dot" />
+            {g.date}
           </div>
-          {g.items.map((d) => (
-            <Card key={d.id} size="small" style={{ marginBottom: 10 }}>
-              <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                <Space>
-                  <span style={{ fontWeight: 500 }}>{d.file_name}</span>
-                  {d.source_type === 'url' && <Tag color="blue">网页</Tag>}
-                  <StatusTag status={d.status} />
-                  {tagsCell(d.tags)}
-                </Space>
-                <Space>
-                  <FavoriteButton
-                    targetType="document"
-                    targetId={d.id}
-                    initialFavId={favMap[d.id] ?? null}
-                    snapshot={favSnapshot(d)}
-                    onChange={onFavChange}
-                  />
-                  <Popconfirm title="确定删除？" onConfirm={() => onDelete(d.id)}>
-                    <Button size="small" type="link" danger>
-                      删除
-                    </Button>
-                  </Popconfirm>
-                </Space>
-              </Space>
-            </Card>
-          ))}
+          <div className="kb-list">{g.items.map(renderRow)}</div>
         </div>
       ))}
     </div>
@@ -419,13 +370,15 @@ function SearchResult({ hits, onBack }: { hits: SearchHit[]; onBack: () => void 
       </Space>
       {hits.length ? (
         hits.map((h) => (
-          <Card key={h.chunk_id} size="small" style={{ marginBottom: 8 }}>
-            <div style={{ marginBottom: 4 }}>
-              <Tag color="blue">{h.doc_name}</Tag>
-              <Tag>score {h.score}</Tag>
+          <div key={h.chunk_id} className="kb-hit">
+            <div className="kb-hit-head">
+              <Tag color="blue" style={{ margin: 0 }}>
+                {h.doc_name}
+              </Tag>
+              <span className="kb-hit-score">相关度 {h.score}</span>
             </div>
-            <div style={{ color: '#475467' }}>{h.content}</div>
-          </Card>
+            <div className="kb-hit-content">{h.content}</div>
+          </div>
         ))
       ) : (
         <Empty description="没有找到相关内容" />

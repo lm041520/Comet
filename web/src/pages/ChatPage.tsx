@@ -131,6 +131,7 @@ export default function ChatPage() {
           conversationId: id,
           favId: favByMsg[m.id] ?? null,
           feedback: m.feedback ?? null,
+          createdAt: m.created_at,
         })),
       )
       if (focusMessageId) {
@@ -188,7 +189,7 @@ export default function ChatPage() {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === aiId
-              ? { ...m, streaming: false, id: d.message_id ?? m.id }
+              ? { ...m, streaming: false, id: d.message_id ?? m.id, createdAt: new Date().toISOString() }
               : m,
           ),
         )
@@ -234,11 +235,13 @@ export default function ChatPage() {
     setPendingImages([])
 
     // 先插入用户消息 + 占位的 AI 消息
+    const now = new Date().toISOString()
     const userMsg: UiMessage = {
       id: `u-${Date.now()}`,
       role: 'user',
       content: text,
       images: imgs.map((i) => i.url),
+      createdAt: now,
     }
     const aiMsg: UiMessage = {
       id: `a-${Date.now()}`,
@@ -299,6 +302,7 @@ export default function ChatPage() {
                     streaming: false,
                     id: d.message_id ?? m.id,
                     conversationId: d.conversation_id,
+                    createdAt: m.createdAt ?? new Date().toISOString(),
                   }
                 : m,
             ),
@@ -320,6 +324,13 @@ export default function ChatPage() {
     )
   }
 
+  const SUGGESTIONS = [
+    '帮我总结一下知识库里的内容',
+    '我最近都聊过些什么？',
+    '联网查一下今天有什么科技新闻',
+    '根据我的记忆，给我一些建议',
+  ]
+
   return (
     <div
       style={{
@@ -329,17 +340,7 @@ export default function ChatPage() {
       }}
     >
       {/* 会话列表 */}
-      <div
-        style={{
-          width: 268,
-          flexShrink: 0,
-          background: '#fff',
-          borderRadius: 14,
-          border: '1px solid #EAECF0',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <div className="chat-sidebar">
         <div style={{ padding: 16 }}>
           <Button
             type="primary"
@@ -347,28 +348,22 @@ export default function ChatPage() {
             size="large"
             icon={<PlusOutlined />}
             onClick={newConversation}
+            className="chat-new-btn"
           >
             新对话
           </Button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 10px 10px' }}>
+          {conversations.length === 0 && (
+            <div className="chat-conv-empty">还没有对话，点上方开始</div>
+          )}
           {convGroups.map((group) => {
             const collapsed = collapsedGroups.has(group.key)
             return (
               <div key={group.key} style={{ marginBottom: 6 }}>
                 <div
                   onClick={() => toggleGroup(group.key)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '8px 10px 4px',
-                    fontSize: 12,
-                    color: '#98A2B3',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                  }}
+                  className="chat-group-title"
                 >
                   {collapsed ? (
                     <RightOutlined style={{ fontSize: 10 }} />
@@ -385,30 +380,9 @@ export default function ChatPage() {
                     <div
                       key={c.id}
                       onClick={() => openConversation(c.id)}
-                      style={{
-                        padding: '11px 12px',
-                        borderRadius: 10,
-                        cursor: 'pointer',
-                        fontSize: 15,
-                        background: c.id === activeId ? '#EEF4FF' : 'transparent',
-                        color: c.id === activeId ? '#155EEF' : '#344054',
-                        fontWeight: c.id === activeId ? 600 : 400,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: 4,
-                        transition: 'background 0.15s',
-                      }}
+                      className={`chat-conv-item${c.id === activeId ? ' active' : ''}`}
                     >
-                      <span
-                        style={{
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {c.title}
-                      </span>
+                      <span className="chat-conv-title">{c.title}</span>
                       <Popconfirm
                         title="删除该会话？"
                         onConfirm={(e) => {
@@ -419,7 +393,7 @@ export default function ChatPage() {
                       >
                         <DeleteOutlined
                           onClick={(e) => e.stopPropagation()}
-                          style={{ color: '#98A2B3' }}
+                          className="chat-conv-del"
                         />
                       </Popconfirm>
                     </div>
@@ -431,36 +405,25 @@ export default function ChatPage() {
       </div>
 
       {/* 对话主区 */}
-      <div
-        style={{
-          flex: 1,
-          minWidth: 0,
-          background: '#fff',
-          borderRadius: 14,
-          border: '1px solid #EAECF0',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
-      >
+      <div className="chat-main">
         <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '28px 0' }}>
           {messages.length === 0 ? (
-            <div
-              style={{
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 10,
-              }}
-            >
-              <div style={{ fontSize: 52 }}>💬</div>
-              <div style={{ fontSize: 20, fontWeight: 600, color: '#344054' }}>
-                开始一段对话
-              </div>
-              <div style={{ fontSize: 15, color: '#98A2B3' }}>
+            <div className="chat-empty">
+              <div className="chat-empty-orb">💬</div>
+              <div className="chat-empty-title">开始一段对话</div>
+              <div className="chat-empty-sub">
                 我会按需查知识库、调记忆或联网搜索
+              </div>
+              <div className="chat-suggestions">
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    className="chat-suggestion"
+                    onClick={() => setInput(s)}
+                  >
+                    {s}
+                  </button>
+                ))}
               </div>
             </div>
           ) : (
@@ -485,7 +448,7 @@ export default function ChatPage() {
         </div>
 
         {/* 输入区 */}
-        <div style={{ borderTop: '1px solid #EAECF0', padding: '16px 0' }}>
+        <div className="chat-input-bar">
           <div className="fluid-narrow" style={{ padding: '0 24px' }}>
             {pendingImages.length > 0 && (
               <Space wrap style={{ marginBottom: 10 }}>
@@ -512,15 +475,7 @@ export default function ChatPage() {
                 ))}
               </Space>
             )}
-            <div
-              style={{
-                border: '1px solid #E4E7EC',
-                borderRadius: 14,
-                padding: '12px 14px',
-                background: '#fff',
-                boxShadow: '0 1px 2px rgba(16,24,40,0.04)',
-              }}
-            >
+            <div className="chat-input-box">
               <Input.TextArea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
