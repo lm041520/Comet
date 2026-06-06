@@ -90,6 +90,12 @@ class MemoryService:
                 "description": e.get("description") or "",
                 "aliases": e.get("aliases") or [],
                 "relations": e.get("relations") or [],
+                "importance": e.get("importance", 0.5),
+                "memory_layer": e.get("memory_layer") or "short_term",
+                "access_count": e.get("access_count", 0),
+                "mention_count": e.get("mention_count", 1),
+                "core_facts": e.get("core_facts") or [],
+                "traits": e.get("traits") or [],
             }
             groups.setdefault(item["type"], []).append(item)
 
@@ -154,6 +160,14 @@ class MemoryService:
 
         return await MemoryGraphRepository().merge_duplicate_entities(str(user_id))
 
+    async def consolidate(self, user_id: uuid.UUID) -> dict:
+        """手动触发记忆巩固（短期→长期 + 画像增强）。"""
+        from app.core.llm.resolver import get_optional_client_for_type
+        from app.core.memory.consolidation.consolidator import ConsolidationEngine
+
+        chat_client = await get_optional_client_for_type(self.session, user_id, "chat")
+        return await ConsolidationEngine(chat_client=chat_client).run(str(user_id))
+
     async def get_graph(self, user_id: uuid.UUID) -> dict:
         """知识图谱全量数据：nodes（实体）+ edges（关系）+ communities。"""
         from app.repositories.neo4j.community_repository import CommunityRepository
@@ -174,6 +188,13 @@ class MemoryService:
                 "type": n.get("type"),
                 "description": n.get("description") or "",
                 "community_id": n.get("community_id"),
+                "importance": n.get("importance", 0.5),
+                "memory_layer": n.get("memory_layer") or "short_term",
+                "access_count": n.get("access_count", 0),
+                "mention_count": n.get("mention_count", 1),
+                "aliases": n.get("aliases") or [],
+                "core_facts": n.get("core_facts") or [],
+                "traits": n.get("traits") or [],
             }
             for n in raw_nodes
         ]

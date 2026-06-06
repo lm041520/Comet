@@ -38,6 +38,18 @@
 
 4. `has_unsolved_reference`：布尔值。若陈述中仍存在无法从上下文稳定解析的代词/指示词/省略主体（如"他""这个""那家"无法确定指代），置为 `true`，否则 `false`。
 
+5. `importance`：0~1 的小数，该陈述对刻画「用户画像/长期记忆」的重要程度。核心身份/职业/重要关系/长期目标→高（0.7~1.0）；一般偏好/习惯→中（0.4~0.7）；琐碎、临时、无长期价值→低（0~0.4）。
+
+6. `confidence`：0~1 的小数，该陈述信息的确定性。用户明确陈述的事实→高（0.8~1.0）；推测、模糊、含糊其辞→中低（0.3~0.7）。
+
+7. `has_emotional_state`：布尔值。该陈述是否流露用户的情绪/情感状态。是则为 `true` 并填下面情绪字段；纯客观陈述为 `false`。
+
+8. `emotion_type`：含情绪时填主情绪（喜悦/悲伤/愤怒/恐惧/焦虑/平静/期待/疲惫等中文），否则填 null。
+
+9. `emotion_intensity`：含情绪时填强度 0~1，否则 null。
+
+10. `emotion_keywords`：含情绪时填 1~3 个情绪关键词数组，否则 []。
+
 ===输出格式===
 - 使用标准 ASCII 双引号，字符串内引号转义为 \"，不使用中文引号。
 - 字符串值内不要换行。
@@ -51,8 +63,30 @@
       "statement": "string",
       "statement_type": "FACT | OPINION | PREDICTION | SUGGESTION",
       "temporal_type": "STATIC | DYNAMIC | ATEMPORAL",
-      "has_unsolved_reference": false
+      "has_unsolved_reference": false,
+      "importance": 0.5,
+      "confidence": 0.8,
+      "has_emotional_state": false,
+      "emotion_type": null,
+      "emotion_intensity": null,
+      "emotion_keywords": []
     }
   ]
 }
 ```
+
+===示例===
+
+输入文本："我在腾讯做后端开发，最近在学 Rust。今天加班到很晚，好累啊。"
+输出：
+{
+  "statements": [
+    {"statement": "用户在腾讯做后端开发", "statement_type": "FACT", "temporal_type": "DYNAMIC", "has_unsolved_reference": false, "importance": 0.9, "confidence": 0.95, "has_emotional_state": false, "emotion_type": null, "emotion_intensity": null, "emotion_keywords": []},
+    {"statement": "用户最近在学 Rust", "statement_type": "FACT", "temporal_type": "DYNAMIC", "has_unsolved_reference": false, "importance": 0.7, "confidence": 0.9, "has_emotional_state": false, "emotion_type": null, "emotion_intensity": null, "emotion_keywords": []},
+    {"statement": "用户今天加班到很晚，感到很累", "statement_type": "FACT", "temporal_type": "STATIC", "has_unsolved_reference": false, "importance": 0.4, "confidence": 0.85, "has_emotional_state": true, "emotion_type": "疲惫", "emotion_intensity": 0.7, "emotion_keywords": ["疲惫", "加班"]}
+  ]
+}
+
+输入文本："今天天气不错。"
+输出：
+{"statements": []}

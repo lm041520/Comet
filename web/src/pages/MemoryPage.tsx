@@ -77,6 +77,7 @@ function ProfilePanel() {
   const [loading, setLoading] = useState(false)
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [consolidating, setConsolidating] = useState(false)
   // 已收藏的记忆实体：entity_id -> favorite_id（用于高亮与取消）
   const [favMap, setFavMap] = useState<Record<string, string>>({})
   const pollRef = useRef<number | null>(null)
@@ -154,6 +155,21 @@ function ProfilePanel() {
     }
   }
 
+  const onConsolidate = async () => {
+    setConsolidating(true)
+    try {
+      const { data } = await memoryApi.consolidate()
+      message.success(
+        `巩固完成：提升 ${data.promoted_entities} 个实体进长期记忆，增强 ${data.enhanced_profiles} 个画像`,
+      )
+      load()
+    } catch (e) {
+      message.error((e as Error).message)
+    } finally {
+      setConsolidating(false)
+    }
+  }
+
   const onFavoriteEntity = async (ent: ProfileEntity) => {
     const existingFavId = favMap[ent.id]
     try {
@@ -211,9 +227,14 @@ function ProfilePanel() {
         <Empty description="还没有记忆。主动记住一些事，或在对话中聊聊你自己，我会自动记住" />
       ) : (
         <>
-          <Text type="secondary">
-            已记住 {profile.total} 个实体，覆盖 {profile.groups.length} 个类型
-          </Text>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text type="secondary">
+              已记住 {profile.total} 个实体，覆盖 {profile.groups.length} 个类型
+            </Text>
+            <Button size="small" loading={consolidating} onClick={onConsolidate}>
+              记忆巩固
+            </Button>
+          </div>
           {profile.groups.map((group) => (
             <div key={group.type}>
               <div style={{ marginBottom: 10 }}>
@@ -235,9 +256,16 @@ function ProfilePanel() {
                 {group.entities.map((ent) => (
                   <Card key={ent.id} size="small" styles={{ body: { padding: 14 } }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                      <Text strong style={{ fontSize: 15 }}>
-                        {ent.name}
-                      </Text>
+                      <Space size={4}>
+                        <Text strong style={{ fontSize: 15 }}>
+                          {ent.name}
+                        </Text>
+                        {ent.memory_layer === 'long_term' && (
+                          <Tag color="gold" style={{ fontSize: 11, lineHeight: '16px', margin: 0 }}>
+                            长期
+                          </Tag>
+                        )}
+                      </Space>
                       <Space size={4}>
                         {favMap[ent.id] ? (
                           <StarFilled
@@ -278,6 +306,24 @@ function ProfilePanel() {
                         {ent.relations.slice(0, 4).map((rel, i) => (
                           <div key={i} style={{ fontSize: 12.5, color: '#475467', lineHeight: 1.8 }}>
                             <Text type="secondary">{rel.predicate}</Text> {rel.object_name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {ent.traits && ent.traits.length > 0 && (
+                      <div style={{ marginTop: 8 }}>
+                        {ent.traits.map((t) => (
+                          <Tag key={t} color="purple" style={{ fontSize: 12 }}>
+                            {t}
+                          </Tag>
+                        ))}
+                      </div>
+                    )}
+                    {ent.core_facts && ent.core_facts.length > 0 && (
+                      <div style={{ marginTop: 6 }}>
+                        {ent.core_facts.slice(0, 4).map((f, i) => (
+                          <div key={i} style={{ fontSize: 12.5, color: '#155EEF', lineHeight: 1.7 }}>
+                            ✦ {f}
                           </div>
                         ))}
                       </div>

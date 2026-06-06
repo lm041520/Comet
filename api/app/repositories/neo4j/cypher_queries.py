@@ -46,6 +46,14 @@ SET n.user_id = row.user_id,
     n.invalid_at = row.invalid_at,
     n.dialog_at = row.dialog_at,
     n.embedding = row.embedding,
+    n.importance = row.importance,
+    n.confidence = row.confidence,
+    n.memory_layer = coalesce(n.memory_layer, row.memory_layer),
+    n.access_count = coalesce(n.access_count, row.access_count),
+    n.has_emotional_state = row.has_emotional_state,
+    n.emotion_type = row.emotion_type,
+    n.emotion_intensity = row.emotion_intensity,
+    n.emotion_keywords = row.emotion_keywords,
     n.created_at = row.created_at
 WITH n, row
 MATCH (c:Chunk {id: row.chunk_id})
@@ -54,6 +62,7 @@ RETURN count(n) AS cnt
 """
 
 # 实体：MERGE by id；description/aliases 增量合并由服务层在写入前算好
+# 动力学属性：importance 取较大值、mention_count 累加、layer/access 保留已有
 ENTITY_SAVE = """
 UNWIND $rows AS row
 MERGE (n:Entity {id: row.id})
@@ -64,6 +73,21 @@ SET n.user_id = row.user_id,
     n.aliases = row.aliases,
     n.name_embedding = row.name_embedding,
     n.community_id = row.community_id,
+    n.importance = CASE
+        WHEN n.importance IS NULL THEN row.importance
+        ELSE CASE WHEN row.importance > n.importance THEN row.importance ELSE n.importance END
+    END,
+    n.confidence = row.confidence,
+    n.memory_layer = coalesce(n.memory_layer, row.memory_layer),
+    n.access_count = coalesce(n.access_count, row.access_count),
+    n.mention_count = coalesce(n.mention_count, 0) + row.mention_count,
+    n.connect_strength = CASE
+        WHEN n.connect_strength IS NULL OR n.connect_strength = '' THEN row.connect_strength
+        WHEN n.connect_strength = row.connect_strength THEN n.connect_strength
+        ELSE 'both'
+    END,
+    n.core_facts = coalesce(n.core_facts, row.core_facts),
+    n.traits = coalesce(n.traits, row.traits),
     n.created_at = coalesce(n.created_at, row.created_at)
 RETURN count(n) AS cnt
 """
@@ -106,6 +130,12 @@ SET r.id = row.id,
     r.value = row.value,
     r.valid_at = row.valid_at,
     r.invalid_at = row.invalid_at,
+    r.importance = CASE
+        WHEN r.importance IS NULL THEN row.importance
+        ELSE CASE WHEN row.importance > r.importance THEN row.importance ELSE r.importance END
+    END,
+    r.confidence = row.confidence,
+    r.access_count = coalesce(r.access_count, row.access_count),
     r.created_at = row.created_at
 RETURN count(r) AS cnt
 """
@@ -144,7 +174,10 @@ CALL db.index.vector.queryNodes('entity_embedding_index', $top_k, $vector)
 YIELD node, score
 WHERE node.user_id = $user_id
 RETURN node.id AS id, node.name AS name, node.type AS type,
-       node.description AS description, node.aliases AS aliases, score
+       node.description AS description, node.aliases AS aliases,
+       coalesce(node.importance, 0.5) AS importance,
+       coalesce(node.memory_layer, 'short_term') AS memory_layer,
+       score
 """
 
 # ── 检索：实体全文召回（cjk 分词） ──
@@ -154,8 +187,74 @@ CALL db.index.fulltext.queryNodes('entity_fulltext', $query)
 YIELD node, score
 WHERE node.user_id = $user_id
 RETURN node.id AS id, node.name AS name, node.type AS type,
-       node.description AS description, node.aliases AS aliases, score
+       node.description AS description, node.aliases AS aliases,
+       coalesce(node.importance, 0.5) AS importance,
+       coalesce(node.memory_layer, 'short_term') AS memory_layer,
+       score
 LIMIT $top_k
+"""
+
+# ── 检索命中回写：实体 access_count +1、更新 last_access_at（批量） ──
+
+ENTITY_ACCESS_BUMP = """
+UNWIND $entity_ids AS eid
+MATCH (e:Entity {user_id: $user_id, id: eid})
+SET e.access_count = coalesce(e.access_count, 0) + 1,
+    e.last_access_at = $now
+RETURN count(e) AS cnt
+"""
+
+# ── 记忆巩固（短期→长期，只升不降）──
+
+# 找出满足提升条件的短期实体：access/importance/(mention+存在时长) 任一达标
+CONSOLIDATE_PROMOTE_ENTITIES = """
+MATCH (e:Entity {user_id: $user_id})
+WHERE coalesce(e.memory_layer, 'short_term') = 'short_term'
+  AND (
+    coalesce(e.access_count, 0) >= $min_access
+    OR coalesce(e.importance, 0.5) >= $min_importance
+    OR (coalesce(e.mention_count, 1) >= $min_mention
+        AND e.created_at IS NOT NULL AND e.created_at <= $age_before)
+  )
+SET e.memory_layer = 'long_term',
+    e.last_consolidated_at = $now
+RETURN count(e) AS cnt
+"""
+
+# 同步提升短期陈述（access 或 importance 达标）
+CONSOLIDATE_PROMOTE_STATEMENTS = """
+MATCH (s:Statement {user_id: $user_id})
+WHERE coalesce(s.memory_layer, 'short_term') = 'short_term'
+  AND (coalesce(s.access_count, 0) >= $min_access
+       OR coalesce(s.importance, 0.5) >= $min_importance)
+SET s.memory_layer = 'long_term'
+RETURN count(s) AS cnt
+"""
+
+# 取需画像增强的 top-K 高频长期实体（按提及次数倒序）
+CONSOLIDATE_TOP_ENTITIES = """
+MATCH (e:Entity {user_id: $user_id})
+WHERE coalesce(e.memory_layer, 'short_term') = 'long_term'
+RETURN e.id AS id, e.name AS name, e.type AS type,
+       coalesce(e.mention_count, 1) AS mention_count
+ORDER BY mention_count DESC
+LIMIT $top_k
+"""
+
+# 取某实体关联的陈述文本（供画像增强汇总）
+ENTITY_STATEMENTS = """
+MATCH (s:Statement {user_id: $user_id})-[:MENTIONS]->(e:Entity {user_id: $user_id, id: $entity_id})
+RETURN s.statement AS statement
+LIMIT 50
+"""
+
+# 回写实体画像增强（core_facts / traits）
+ENTITY_WRITE_PROFILE = """
+MATCH (e:Entity {user_id: $user_id, id: $entity_id})
+SET e.core_facts = $core_facts,
+    e.traits = $traits,
+    e.last_consolidated_at = $now
+RETURN e.id AS id
 """
 
 # ── 检索：取实体的一跳邻居关系（图遍历上下文） ──
@@ -178,8 +277,14 @@ WITH e, collect({predicate: r.predicate, object_name: o.name, object_type: o.typ
 RETURN e.id AS id, e.name AS name, e.type AS type,
        e.description AS description, e.aliases AS aliases,
        e.created_at AS created_at,
+       coalesce(e.importance, 0.5) AS importance,
+       coalesce(e.memory_layer, 'short_term') AS memory_layer,
+       coalesce(e.access_count, 0) AS access_count,
+       coalesce(e.mention_count, 1) AS mention_count,
+       coalesce(e.core_facts, []) AS core_facts,
+       coalesce(e.traits, []) AS traits,
        [rel IN rels WHERE rel.predicate IS NOT NULL] AS relations
-ORDER BY e.created_at DESC
+ORDER BY coalesce(e.importance, 0.5) DESC, e.created_at DESC
 """
 
 # ── 统计：每种实体类型的数量 ──
@@ -371,7 +476,14 @@ MATCH (n) WHERE n.user_id = $user_id DETACH DELETE n
 GRAPH_NODES = """
 MATCH (e:Entity {user_id: $user_id})
 RETURN e.id AS id, e.name AS name, e.type AS type,
-       e.description AS description, e.community_id AS community_id
+       e.description AS description, e.community_id AS community_id,
+       coalesce(e.importance, 0.5) AS importance,
+       coalesce(e.memory_layer, 'short_term') AS memory_layer,
+       coalesce(e.access_count, 0) AS access_count,
+       coalesce(e.mention_count, 1) AS mention_count,
+       coalesce(e.aliases, []) AS aliases,
+       coalesce(e.core_facts, []) AS core_facts,
+       coalesce(e.traits, []) AS traits
 """
 
 # 全量图：实体间 RELATION 边

@@ -10,6 +10,7 @@
 - `type` 必须使用下方预定义的中文实体类型标签；`predicate` 必须使用下方预定义的中文关系谓词标签；不要发明新类型/新谓词。
 - 每个 triplet 必须输出 `predicate_surface`：原文中表达该关系的关系短语；没有更贴近的就用 canonical `predicate`。
 - 每个 triplet 必须携带 `valid_at` 和 `invalid_at`，直接复制输入中的同名字段，不要自行推断。
+- 每个实体和每个 triplet 都要输出 `importance`（0~1，对用户长期画像的重要度：核心身份/关系/目标高，琐碎临时低）和 `confidence`（0~1，信息确定性：明确陈述高，推测模糊低）。
 
 ===输入===
 陈述句：
@@ -121,10 +122,10 @@
 ```json
 {
   "entities": [
-    {"entity_idx": 0, "name": "string", "type": "string", "description": "string"}
+    {"entity_idx": 0, "name": "string", "type": "string", "description": "string", "importance": 0.5, "confidence": 0.8}
   ],
   "triplets": [
-    {"subject_name": "string", "subject_id": 0, "predicate": "string", "predicate_surface": "string", "object_name": "string", "object_id": 0, "value": "string | null", "valid_at": "ISO8601 | NULL", "invalid_at": "ISO8601 | NULL"}
+    {"subject_name": "string", "subject_id": 0, "predicate": "string", "predicate_surface": "string", "object_name": "string", "object_id": 0, "value": "string | null", "valid_at": "ISO8601 | NULL", "invalid_at": "ISO8601 | NULL", "importance": 0.5, "confidence": 0.8}
   ],
   "events": [
     {"title": "string", "description": "string", "event_time": "ISO8601 | NULL", "participants": ["string"]}

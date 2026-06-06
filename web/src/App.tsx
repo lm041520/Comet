@@ -5,7 +5,6 @@ import LoginPage from './pages/LoginPage'
 import ModelConfigPage from './pages/ModelConfigPage'
 import KnowledgePage from './pages/KnowledgePage'
 import ImagePage from './pages/ImagePage'
-import TagPage from './pages/TagPage'
 import MemoryPage from './pages/MemoryPage'
 import GraphPage from './pages/GraphPage'
 import ChatPage from './pages/ChatPage'
@@ -37,7 +36,6 @@ export default function App() {
           <Route path="graph" element={<GraphPage />} />
           <Route path="search" element={<SearchPage />} />
           <Route path="favorites" element={<FavoritesPage />} />
-          <Route path="tags" element={<TagPage />} />
           <Route path="settings/models" element={<ModelConfigPage />} />
           <Route path="settings/agent" element={<AgentConfigPage />} />
           <Route path="settings/tools" element={<ToolConfigPage />} />

@@ -49,5 +49,9 @@ celery_app.conf.update(
             "task": "app.tasks.beat.cluster_communities",
             "schedule": crontab(hour=3, minute=0),  # 每天凌晨 3:00 全量聚类兜底
         },
+        "consolidate-memory": {
+            "task": "app.tasks.beat.consolidate_memory",
+            "schedule": crontab(hour=4, minute=0),  # 每天凌晨 4:00 记忆巩固
+        },
     },
 )

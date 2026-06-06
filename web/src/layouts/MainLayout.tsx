@@ -11,7 +11,6 @@ import {
   SearchOutlined,
   SettingOutlined,
   StarOutlined,
-  TagsOutlined,
   ToolOutlined,
   UserOutlined,
 } from '@ant-design/icons'
@@ -47,7 +46,6 @@ const menuItems = [
     children: [
       { key: '/search', icon: <SearchOutlined />, label: '全局搜索' },
       { key: '/favorites', icon: <StarOutlined />, label: '收藏夹' },
-      { key: '/tags', icon: <TagsOutlined />, label: '标签管理' },
     ],
   },
   {

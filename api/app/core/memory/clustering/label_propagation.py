@@ -199,7 +199,7 @@ class LabelPropagationEngine:
                 summary or f"包含实体：{', '.join(names[:10])}",
             )
         except Exception as e:
-            logger.warning("社区元数据 LLM 生成失败（兜底）: %s", e)
+            logger.warning("社区元数据 LLM 生成失败（兜底）: %r", e)
             names = [m.get("name", "") for m in members if m.get("name")]
             return "、".join(names[:3]) or "未命名社区", f"包含实体：{', '.join(names[:10])}"
 

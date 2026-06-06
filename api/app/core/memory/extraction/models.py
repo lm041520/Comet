@@ -15,6 +15,14 @@ class ExtractedStatement(BaseModel):
     statement_type: str = "FACT"  # FACT | OPINION | PREDICTION | SUGGESTION
     temporal_type: str = "STATIC"  # STATIC | DYNAMIC | ATEMPORAL
     has_unsolved_reference: bool = False
+    # 记忆动力学：LLM 评分（0~1），缺省给中性默认
+    importance: float = 0.5  # 重要度
+    confidence: float = 0.8  # 置信度
+    # 情绪（含情绪时填，与 PG 情绪表并存：图谱情绪用于带情绪的记忆检索/画像）
+    has_emotional_state: bool = False
+    emotion_type: str | None = None
+    emotion_intensity: float | None = None
+    emotion_keywords: list[str] = Field(default_factory=list)
 
 
 class StatementExtractionResult(BaseModel):
@@ -42,6 +50,8 @@ class ExtractedEntity(BaseModel):
     name: str
     type: str
     description: str = ""
+    importance: float = 0.5  # 重要度（LLM 评分 0~1）
+    confidence: float = 0.8  # 置信度（LLM 评分 0~1）
 
 
 class ExtractedTriplet(BaseModel):
@@ -57,6 +67,8 @@ class ExtractedTriplet(BaseModel):
     value: str | None = None
     valid_at: str | None = None
     invalid_at: str | None = None
+    importance: float = 0.5  # 关系重要度（LLM 评分 0~1）
+    confidence: float = 0.8  # 关系置信度（LLM 评分 0~1）
 
 
 class TripletExtractionResult(BaseModel):

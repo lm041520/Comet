@@ -10,9 +10,12 @@ from app.repositories.neo4j.memory_graph_repository import MemoryGraphRepository
 
 logger = get_logger(__name__)
 
-# 融合权重（与知识库检索保持一致口径：向量为主，全文为辅）
-_VECTOR_WEIGHT = 0.6
-_FULLTEXT_WEIGHT = 0.4
+# 融合权重（向量为主，全文为辅，重要度为附加加权）
+_VECTOR_WEIGHT = 0.55
+_FULLTEXT_WEIGHT = 0.30
+_IMPORTANCE_WEIGHT = 0.15
+# 长期记忆轻微加权（更稳定的记忆优先）
+_LONG_TERM_BONUS = 0.05
 
 
 def _normalize(scores: dict[str, float]) -> dict[str, float]:
@@ -85,6 +88,10 @@ async def search_memory(
             return []
         ranked = sorted(kept.items(), key=lambda x: x[1], reverse=True)[:top_k]
         top_ids = [eid for eid, _ in ranked]
+        try:
+            await repo.bump_entity_access(uid, top_ids)
+        except Exception as e:
+            logger.warning("记忆检索命中回写失败（忽略）: %s", e)
         neighbor_rows = await repo.get_entity_neighbors(uid, top_ids)
         relations_by_entity: dict[str, list[dict]] = {eid: [] for eid in top_ids}
         for row in neighbor_rows:
@@ -105,6 +112,8 @@ async def search_memory(
                 "type": src.get("type"),
                 "description": src.get("description"),
                 "aliases": src.get("aliases") or [],
+                "importance": round(float(src.get("importance", 0.5) or 0.5), 3),
+                "memory_layer": src.get("memory_layer") or "short_term",
                 "score": round(score, 4),
                 "relations": relations_by_entity.get(eid, []),
             })
@@ -114,10 +123,21 @@ async def search_memory(
     ft_n = _normalize(ft_scores)
     fused: dict[str, float] = {}
     for eid in all_hits:
-        fused[eid] = _VECTOR_WEIGHT * vec_n.get(eid, 0.0) + _FULLTEXT_WEIGHT * ft_n.get(eid, 0.0)
+        base = _VECTOR_WEIGHT * vec_n.get(eid, 0.0) + _FULLTEXT_WEIGHT * ft_n.get(eid, 0.0)
+        importance = float(all_hits[eid].get("importance", 0.5) or 0.5)
+        score = base + _IMPORTANCE_WEIGHT * importance
+        if (all_hits[eid].get("memory_layer") or "") == "long_term":
+            score += _LONG_TERM_BONUS
+        fused[eid] = score
 
     ranked = sorted(fused.items(), key=lambda x: x[1], reverse=True)[:top_k]
     top_ids = [eid for eid, _ in ranked]
+
+    # 命中回写：access_count +1、last_access_at（失败不影响检索）
+    try:
+        await repo.bump_entity_access(uid, top_ids)
+    except Exception as e:
+        logger.warning("记忆检索命中回写失败（忽略）: %s", e)
 
     # 4. 一跳邻居关系遍历，拼上下文
     neighbor_rows = await repo.get_entity_neighbors(uid, top_ids)
@@ -141,6 +161,8 @@ async def search_memory(
             "type": src.get("type"),
             "description": src.get("description"),
             "aliases": src.get("aliases") or [],
+            "importance": round(float(src.get("importance", 0.5) or 0.5), 3),
+            "memory_layer": src.get("memory_layer") or "short_term",
             "score": round(score, 4),
             "relations": relations_by_entity.get(eid, []),
         })

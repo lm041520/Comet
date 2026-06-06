@@ -29,7 +29,7 @@ async def extract_statements(
         result = StatementExtractionResult.model_validate(data)
         return [s for s in result.statements if s.statement and s.statement.strip()]
     except Exception as e:
-        logger.warning("陈述抽取失败（忽略该块）: %s", e)
+        logger.warning("陈述抽取失败（忽略该块）: %r", e)
         return []
 
 

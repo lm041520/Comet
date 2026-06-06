@@ -98,6 +98,16 @@ async def merge_duplicates(
     return success({"removed": removed}, f"已合并 {removed} 个重复实体")
 
 
+@router.post("/consolidate")
+async def consolidate(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """手动触发记忆巩固（短期记忆→长期 + 核心实体画像增强）。"""
+    stats = await MemoryService(session).consolidate(user.id)
+    return success(stats, "记忆巩固完成")
+
+
 @router.get("/graph")
 async def get_graph(
     user: User = Depends(get_current_user),

@@ -65,6 +65,12 @@ export interface ProfileEntity {
   description: string
   aliases: string[]
   relations: EntityRelation[]
+  importance: number
+  memory_layer: string
+  access_count: number
+  mention_count: number
+  core_facts: string[]
+  traits: string[]
 }
 
 export interface ProfileGroup {
@@ -100,6 +106,13 @@ export interface GraphNode {
   type: string
   description: string
   community_id: string | null
+  importance?: number
+  memory_layer?: string
+  access_count?: number
+  mention_count?: number
+  aliases?: string[]
+  core_facts?: string[]
+  traits?: string[]
 }
 
 export interface GraphEdge {
@@ -158,6 +171,12 @@ export const memoryApi = {
   },
   mergeDuplicates() {
     return client.post<unknown, Wrapped<{ removed: number }>>('/memories/merge-duplicates')
+  },
+  consolidate() {
+    return client.post<
+      unknown,
+      Wrapped<{ promoted_entities: number; promoted_statements: number; enhanced_profiles: number }>
+    >('/memories/consolidate')
   },
   graph() {
     return client.get<unknown, Wrapped<GraphData>>('/memories/graph')

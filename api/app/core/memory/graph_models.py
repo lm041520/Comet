@@ -50,6 +50,14 @@ TEMPORAL_STATIC = "STATIC"
 TEMPORAL_DYNAMIC = "DYNAMIC"
 TEMPORAL_ATEMPORAL = "ATEMPORAL"
 
+# ── 记忆层级 ──
+LAYER_SHORT_TERM = "short_term"  # 短期记忆：新萃取，未巩固
+LAYER_LONG_TERM = "long_term"  # 长期记忆：经巩固提升
+
+# ── 连接强度 ──
+CONNECT_STRONG = "strong"  # 参与三元组关系的实体
+CONNECT_WEAK = "weak"  # 仅被陈述提及的实体
+
 
 def _new_id() -> str:
     return uuid.uuid4().hex
@@ -100,6 +108,17 @@ class StatementNode(BaseModel):
     invalid_at: datetime | None = None
     dialog_at: datetime | None = None
     embedding: list[float] | None = None
+    # 记忆动力学
+    importance: float = 0.5  # 重要度（LLM 评分）
+    confidence: float = 0.8  # 置信度（LLM 评分）
+    memory_layer: str = LAYER_SHORT_TERM  # 记忆层级（新萃取默认短期）
+    access_count: int = 0  # 被检索命中次数（检索侧回写）
+    last_access_at: datetime | None = None  # 最近被检索时间
+    # 情绪（含情绪时填，与 PG 情绪表并存）
+    has_emotional_state: bool = False
+    emotion_type: str | None = None
+    emotion_intensity: float | None = None
+    emotion_keywords: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=_now)
 
 
@@ -115,6 +134,18 @@ class EntityNode(BaseModel):
     aliases: list[str] = Field(default_factory=list)
     name_embedding: list[float] | None = None
     community_id: str | None = None
+    # 记忆动力学
+    importance: float = 0.5  # 重要度（LLM 评分，合并时取较大值）
+    confidence: float = 0.8  # 置信度（LLM 评分）
+    memory_layer: str = LAYER_SHORT_TERM  # 记忆层级
+    access_count: int = 0  # 被检索命中次数
+    last_access_at: datetime | None = None  # 最近被检索时间
+    mention_count: int = 1  # 被陈述提及累计次数（合并时累加）
+    connect_strength: str = CONNECT_STRONG  # strong | weak | both
+    # 画像增强（巩固任务 LLM 回写）
+    core_facts: list[str] = Field(default_factory=list)  # 核心事实
+    traits: list[str] = Field(default_factory=list)  # 特质标签
+    last_consolidated_at: datetime | None = None  # 最近巩固时间
     created_at: datetime = Field(default_factory=_now)
 
 
@@ -158,6 +189,9 @@ class RelationEdge(BaseModel):
     value: str | None = None  # 附加值（如数量、内容）
     valid_at: datetime | None = None
     invalid_at: datetime | None = None
+    importance: float = 0.5  # 关系重要度（LLM 评分）
+    confidence: float = 0.8  # 关系置信度（LLM 评分）
+    access_count: int = 0  # 被检索命中次数
     created_at: datetime = Field(default_factory=_now)
 
 
@@ -205,6 +239,10 @@ __all__ = [
     "TEMPORAL_STATIC",
     "TEMPORAL_DYNAMIC",
     "TEMPORAL_ATEMPORAL",
+    "LAYER_SHORT_TERM",
+    "LAYER_LONG_TERM",
+    "CONNECT_STRONG",
+    "CONNECT_WEAK",
     "DialogueNode",
     "ChunkNode",
     "StatementNode",

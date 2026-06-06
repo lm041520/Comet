@@ -51,7 +51,7 @@ async def extract_triplets(
         data = parse_json_object(answer)
         return TripletExtractionResult.model_validate(data)
     except Exception as e:
-        logger.warning("三元组萃取失败（忽略该句）: %s", e)
+        logger.warning("三元组萃取失败（忽略该句）: %r", e)
         return TripletExtractionResult()
 
 

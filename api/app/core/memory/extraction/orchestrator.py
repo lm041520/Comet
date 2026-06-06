@@ -126,6 +126,11 @@ async def run_extraction(
                 user_id=user_id, chunk_id=chunk.id, statement=stmt.statement,
                 stmt_type=stmt.statement_type, temporal_type=stmt.temporal_type,
                 dialog_at=dialog_at,
+                importance=stmt.importance, confidence=stmt.confidence,
+                has_emotional_state=stmt.has_emotional_state,
+                emotion_type=stmt.emotion_type,
+                emotion_intensity=stmt.emotion_intensity,
+                emotion_keywords=stmt.emotion_keywords,
             )
             statements.append(stmt_node)
             # 该陈述内 局部 entity_idx → EntityNode
@@ -135,6 +140,7 @@ async def run_extraction(
                     user_id=user_id, name=ent.name.strip(),
                     type=normalize_entity_type(ent.type),
                     description=ent.description or "",
+                    importance=ent.importance, confidence=ent.confidence,
                 )
                 idx_map[ent.entity_idx] = node
                 entity_pool.append(node)
@@ -202,6 +208,7 @@ async def run_extraction(
             predicate_surface=trip.predicate_surface or "",
             source_text="", statement_id=stmt_id, value=trip.value,
             valid_at=_parse_dt(trip.valid_at), invalid_at=_parse_dt(trip.invalid_at),
+            importance=trip.importance, confidence=trip.confidence,
         ))
     stats.relation_count = len(relations)
 

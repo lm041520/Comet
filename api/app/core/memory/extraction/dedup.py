@@ -44,12 +44,18 @@ def _contains(a: str, b: str) -> bool:
 
 
 def _merge_into(canon: EntityNode, other: EntityNode) -> None:
-    """把 other 的别名/描述并入 canon（保留方）。"""
+    """把 other 的别名/描述/动力学属性并入 canon（保留方）。"""
     names = set(canon.aliases) | set(other.aliases) | {other.name}
     names.discard(canon.name)
     canon.aliases = [n for n in names if n]
     if len(other.description) > len(canon.description):
         canon.description = other.description
+    # 动力学：重要度/置信度取较大、提及次数累加、连接强度合并
+    canon.importance = max(canon.importance, other.importance)
+    canon.confidence = max(canon.confidence, other.confidence)
+    canon.mention_count = canon.mention_count + other.mention_count
+    if canon.connect_strength != other.connect_strength:
+        canon.connect_strength = "both"
 
 
 async def _judge_same(
@@ -150,7 +156,7 @@ async def merge_with_graph(
             existing_node = EntityNode(
                 id=exact["id"], user_id=user_id, name=exact.get("name", ""),
                 type=ent.type, description=exact.get("description") or "",
-                aliases=exact.get("aliases") or [],
+                aliases=exact.get("aliases") or [], mention_count=0,
             )
             _merge_into(existing_node, ent)
             existing_node.name_embedding = ent.name_embedding or exact.get("name_embedding")
@@ -180,7 +186,7 @@ async def merge_with_graph(
         existing_node = EntityNode(
             id=best["id"], user_id=user_id, name=best.get("name", ""),
             type=ent.type, description=best.get("description") or "",
-            aliases=best.get("aliases") or [],
+            aliases=best.get("aliases") or [], mention_count=0,
         )
         decision = await _judge_same(client, existing_node, ent, ctx)
         if decision.same_entity and decision.confidence >= _MERGE_CONFIDENCE:

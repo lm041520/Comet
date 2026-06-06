@@ -74,6 +74,14 @@ class MemoryGraphRepository:
             "invalid_at": _dt(n.invalid_at),
             "dialog_at": _dt(n.dialog_at),
             "embedding": n.embedding,
+            "importance": n.importance,
+            "confidence": n.confidence,
+            "memory_layer": n.memory_layer,
+            "access_count": n.access_count,
+            "has_emotional_state": n.has_emotional_state,
+            "emotion_type": n.emotion_type,
+            "emotion_intensity": n.emotion_intensity,
+            "emotion_keywords": n.emotion_keywords,
             "created_at": _dt(n.created_at),
         }
 
@@ -88,6 +96,14 @@ class MemoryGraphRepository:
             "aliases": n.aliases,
             "name_embedding": n.name_embedding,
             "community_id": n.community_id,
+            "importance": n.importance,
+            "confidence": n.confidence,
+            "memory_layer": n.memory_layer,
+            "access_count": n.access_count,
+            "mention_count": n.mention_count,
+            "connect_strength": n.connect_strength,
+            "core_facts": n.core_facts,
+            "traits": n.traits,
             "created_at": _dt(n.created_at),
         }
 
@@ -127,6 +143,9 @@ class MemoryGraphRepository:
             "value": e.value,
             "valid_at": _dt(e.valid_at),
             "invalid_at": _dt(e.invalid_at),
+            "importance": e.importance,
+            "confidence": e.confidence,
+            "access_count": e.access_count,
             "created_at": _dt(e.created_at),
         }
 
@@ -228,6 +247,72 @@ class MemoryGraphRepository:
                 cq.ENTITY_NEIGHBORS, user_id=user_id, entity_ids=entity_ids
             )
             return [dict(record) async for record in result]
+
+    async def bump_entity_access(self, user_id: str, entity_ids: list[str]) -> None:
+        """检索命中回写：实体 access_count +1、更新 last_access_at。失败不影响检索。"""
+        if not entity_ids:
+            return
+        now = datetime.now().isoformat()
+        async with self._driver.session() as session:
+            await session.run(
+                cq.ENTITY_ACCESS_BUMP, user_id=user_id, entity_ids=entity_ids, now=now
+            )
+
+    # ── 记忆巩固（短期→长期 + 画像增强）──
+
+    async def promote_short_to_long(
+        self,
+        user_id: str,
+        *,
+        min_access: int,
+        min_importance: float,
+        min_mention: int,
+        age_before: str,
+    ) -> tuple[int, int]:
+        """把达标的短期实体/陈述提升为长期。返回 (实体数, 陈述数)。"""
+        now = datetime.now().isoformat()
+        async with self._driver.session() as session:
+            r1 = await session.run(
+                cq.CONSOLIDATE_PROMOTE_ENTITIES, user_id=user_id,
+                min_access=min_access, min_importance=min_importance,
+                min_mention=min_mention, age_before=age_before, now=now,
+            )
+            ent_cnt = (await r1.single())["cnt"]
+            r2 = await session.run(
+                cq.CONSOLIDATE_PROMOTE_STATEMENTS, user_id=user_id,
+                min_access=min_access, min_importance=min_importance,
+            )
+            stmt_cnt = (await r2.single())["cnt"]
+            return int(ent_cnt or 0), int(stmt_cnt or 0)
+
+    async def top_long_term_entities(
+        self, user_id: str, top_k: int
+    ) -> list[dict[str, Any]]:
+        """取 top-K 高频长期实体（供画像增强）。"""
+        async with self._driver.session() as session:
+            result = await session.run(
+                cq.CONSOLIDATE_TOP_ENTITIES, user_id=user_id, top_k=top_k
+            )
+            return [dict(r) async for r in result]
+
+    async def entity_statements(self, user_id: str, entity_id: str) -> list[str]:
+        """取某实体关联的陈述文本。"""
+        async with self._driver.session() as session:
+            result = await session.run(
+                cq.ENTITY_STATEMENTS, user_id=user_id, entity_id=entity_id
+            )
+            return [r["statement"] async for r in result if r.get("statement")]
+
+    async def write_entity_profile(
+        self, user_id: str, entity_id: str, core_facts: list[str], traits: list[str]
+    ) -> None:
+        """回写实体画像增强（core_facts / traits）。"""
+        now = datetime.now().isoformat()
+        async with self._driver.session() as session:
+            await session.run(
+                cq.ENTITY_WRITE_PROFILE, user_id=user_id, entity_id=entity_id,
+                core_facts=core_facts, traits=traits, now=now,
+            )
 
     async def count_entities(self, user_id: str) -> int:
         async with self._driver.session() as session:

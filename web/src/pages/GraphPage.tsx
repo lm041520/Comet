@@ -191,8 +191,9 @@ export default function GraphPage() {
       const p = pos.get(node.id)!
       const key = node.community_id || `type:${node.type}`
       const color = colorForKey(key, colorTable)
-      // 小尺寸圆角方块节点（固定大小，不随名称变化）+ 名称显示在节点下方
-      const size = 22
+      // 节点大小按重要度缩放（18~32px），名称显示在节点下方
+      const importance = typeof node.importance === 'number' ? node.importance : 0.5
+      const size = Math.round(18 + importance * 14)
       graph.addNode({
         id: node.id,
         x: p.x - size / 2,
@@ -306,14 +307,43 @@ export default function GraphPage() {
                   <Text strong style={{ fontSize: 16 }}>
                     {selected.name}
                   </Text>
-                  <div style={{ margin: '8px 0' }}>
+                  <div style={{ margin: '8px 0', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                     <Tag color="blue">{selected.type}</Tag>
+                    {selected.memory_layer === 'long_term' ? (
+                      <Tag color="gold">长期记忆</Tag>
+                    ) : (
+                      <Tag>短期记忆</Tag>
+                    )}
+                    {typeof selected.importance === 'number' && (
+                      <Tag color="green">重要度 {Math.round(selected.importance * 100)}</Tag>
+                    )}
                   </div>
                   {selected.description && (
-                    <Paragraph type="secondary" style={{ fontSize: 13, marginBottom: 0 }}>
+                    <Paragraph type="secondary" style={{ fontSize: 13, marginBottom: 8 }}>
                       {selected.description}
                     </Paragraph>
                   )}
+                  {selected.traits && selected.traits.length > 0 && (
+                    <div style={{ marginBottom: 8 }}>
+                      {selected.traits.map((t) => (
+                        <Tag key={t} color="purple" style={{ fontSize: 12 }}>
+                          {t}
+                        </Tag>
+                      ))}
+                    </div>
+                  )}
+                  {selected.core_facts && selected.core_facts.length > 0 && (
+                    <div style={{ marginBottom: 8 }}>
+                      {selected.core_facts.slice(0, 5).map((f, i) => (
+                        <div key={i} style={{ fontSize: 12.5, color: '#155EEF', lineHeight: 1.7 }}>
+                          ✦ {f}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 12, color: '#98A2B3' }}>
+                    被提及 {selected.mention_count ?? 1} 次 · 被检索 {selected.access_count ?? 0} 次
+                  </div>
                 </div>
               )}
               <div
@@ -328,7 +358,7 @@ export default function GraphPage() {
                   color: '#667085',
                 }}
               >
-                {data.nodes.length} 个实体 · {data.edges.length} 条关系 · 颜色区分主题社区
+                {data.nodes.length} 个实体 · {data.edges.length} 条关系 · 颜色区分主题社区 · 大小表示重要度
               </div>
             </>
           )}
