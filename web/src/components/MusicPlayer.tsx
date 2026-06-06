@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons'
 import { useMusicStore } from '@/stores/musicStore'
 import { activeLineIndex, parseLrc } from '@/pages/music/lrc'
+import { useLocation } from 'react-router-dom'
 
 // 带鉴权的资源地址解析：/api/files/.. 需带 token fetch 成 blob；外链直接用
 function useAuthedSrc(src: string | null | undefined) {
@@ -86,6 +87,11 @@ export default function MusicPlayer() {
   const hasAudio = !!track?.url
   const playable = !!track?.playable
   const canSwitch = playlist.length > 1
+  // 音乐页保持深色霓虹；其他页面用浅色，融入整体浅色风格
+  const light = useLocation().pathname !== '/music'
+  const cSub = light ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.6)'
+  const cFaint = light ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.45)'
+  const cGhost = light ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.3)'
 
   // 切歌时重置进度
   useEffect(() => {
@@ -192,7 +198,10 @@ export default function MusicPlayer() {
         />
       )}
 
-      <div className="player-shell" style={{ width: expanded ? 360 : 312 }}>
+      <div
+        className={`player-shell ${light ? 'player-light' : ''}`}
+        style={{ width: expanded ? 360 : 312 }}
+      >
         {/* 顶部条 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12 }}>
           {!expanded && disc}
@@ -211,7 +220,7 @@ export default function MusicPlayer() {
             <div
               style={{
                 fontSize: 12,
-                color: 'rgba(255,255,255,0.6)',
+                color: cSub,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -271,7 +280,7 @@ export default function MusicPlayer() {
                 style={{
                   textAlign: 'center',
                   fontSize: 12,
-                  color: 'rgba(255,255,255,0.45)',
+                  color: cFaint,
                   marginBottom: 8,
                 }}
               >
@@ -295,7 +304,7 @@ export default function MusicPlayer() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: 'rgba(255,255,255,0.3)',
+                  color: cGhost,
                   fontSize: 13,
                 }}
               >
@@ -322,7 +331,7 @@ export default function MusicPlayer() {
                     display: 'flex',
                     justifyContent: 'space-between',
                     fontSize: 12,
-                    color: 'rgba(255,255,255,0.5)',
+                    color: cSub,
                   }}
                 >
                   <span>{fmt(current)}</span>

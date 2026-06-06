@@ -513,6 +513,53 @@ body {
   box-shadow: 0 0 0 2px #fff;
 }
 
+/* 浅色变体（非音乐页）：白底、深字，融入浅色界面 */
+.player-shell.player-light {
+  color: #1d2129;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #ececf0;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.14);
+}
+.player-light .player-ctrl-btn {
+  color: #475467;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+.player-light .player-ctrl-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #1d2129;
+}
+.player-light .player-ctrl-main {
+  color: #fff;
+  background: #155eef;
+  border: none;
+}
+.player-light .player-ctrl-main:hover {
+  background: #155eef;
+  color: #fff;
+  box-shadow: 0 0 14px rgba(21, 94, 239, 0.45);
+}
+.player-light .player-ctrl-btn.text-only {
+  background: transparent;
+  border: none;
+}
+.player-light .lrc-line {
+  color: #98a2b3;
+}
+.player-light .lrc-line.active {
+  color: #155eef;
+  text-shadow: none;
+}
+.player-light .ant-slider .ant-slider-rail {
+  background: rgba(0, 0, 0, 0.12);
+}
+.player-light .ant-slider .ant-slider-track {
+  background: #155eef;
+}
+.player-light .ant-slider .ant-slider-handle::after {
+  box-shadow: 0 0 0 2px #155eef;
+}
+
 
 /* ── 沉浸式音乐页：整体深色，菜单/分组标题/搜索框适配 ── */
 .immersive-layout .ant-menu-item-group-title {

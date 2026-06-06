@@ -12,9 +12,11 @@ import {
 } from 'antd'
 import {
   DeleteOutlined,
+  DownOutlined,
   GlobalOutlined,
   PictureOutlined,
   PlusOutlined,
+  RightOutlined,
   SendOutlined,
 } from '@ant-design/icons'
 import {
@@ -29,10 +31,13 @@ import { favoriteApi } from '@/api/favorites'
 import { AuthenticatedImage } from '@/components/AuthenticatedImage'
 import MessageItem from './chat/MessageItem'
 import type { UiMessage } from './chat/types'
+import { groupConversationsByDate } from './chat/groupByDate'
 
 export default function ChatPage() {
   const [params, setParams] = useSearchParams()
   const [conversations, setConversations] = useState<Conversation[]>([])
+  // 折叠的日期分组（key 集合）；默认仅展开「今天」，其余折叠
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [activeId, setActiveId] = useState<string | undefined>()
   const [messages, setMessages] = useState<UiMessage[]>([])
   const [input, setInput] = useState('')
@@ -42,6 +47,29 @@ export default function ChatPage() {
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const msgRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const groupsInited = useRef(false)
+
+  const convGroups = groupConversationsByDate(conversations)
+
+  // 首次拿到会话时，默认仅展开「今天」，其余分组折叠
+  useEffect(() => {
+    if (groupsInited.current || conversations.length === 0) return
+    groupsInited.current = true
+    const toCollapse = convGroups
+      .filter((g) => g.key !== 'today')
+      .map((g) => g.key)
+    setCollapsedGroups(new Set(toCollapse))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations])
+
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
 
   const loadConversations = async () => {
     try {
@@ -324,43 +352,81 @@ export default function ChatPage() {
           </Button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 10px 10px' }}>
-          {conversations.map((c) => (
-            <div
-              key={c.id}
-              onClick={() => openConversation(c.id)}
-              style={{
-                padding: '11px 12px',
-                borderRadius: 10,
-                cursor: 'pointer',
-                fontSize: 15,
-                background: c.id === activeId ? '#EEF4FF' : 'transparent',
-                color: c.id === activeId ? '#155EEF' : '#344054',
-                fontWeight: c.id === activeId ? 600 : 400,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 4,
-                transition: 'background 0.15s',
-              }}
-            >
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {c.title}
-              </span>
-              <Popconfirm
-                title="删除该会话？"
-                onConfirm={(e) => {
-                  e?.stopPropagation()
-                  onDeleteConversation(c.id)
-                }}
-                onCancel={(e) => e?.stopPropagation()}
-              >
-                <DeleteOutlined
-                  onClick={(e) => e.stopPropagation()}
-                  style={{ color: '#98A2B3' }}
-                />
-              </Popconfirm>
-            </div>
-          ))}
+          {convGroups.map((group) => {
+            const collapsed = collapsedGroups.has(group.key)
+            return (
+              <div key={group.key} style={{ marginBottom: 6 }}>
+                <div
+                  onClick={() => toggleGroup(group.key)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '8px 10px 4px',
+                    fontSize: 12,
+                    color: '#98A2B3',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                  }}
+                >
+                  {collapsed ? (
+                    <RightOutlined style={{ fontSize: 10 }} />
+                  ) : (
+                    <DownOutlined style={{ fontSize: 10 }} />
+                  )}
+                  <span>{group.label}</span>
+                  <span style={{ color: '#CBD2DC', fontWeight: 400 }}>
+                    {group.items.length}
+                  </span>
+                </div>
+                {!collapsed &&
+                  group.items.map((c) => (
+                    <div
+                      key={c.id}
+                      onClick={() => openConversation(c.id)}
+                      style={{
+                        padding: '11px 12px',
+                        borderRadius: 10,
+                        cursor: 'pointer',
+                        fontSize: 15,
+                        background: c.id === activeId ? '#EEF4FF' : 'transparent',
+                        color: c.id === activeId ? '#155EEF' : '#344054',
+                        fontWeight: c.id === activeId ? 600 : 400,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: 4,
+                        transition: 'background 0.15s',
+                      }}
+                    >
+                      <span
+                        style={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {c.title}
+                      </span>
+                      <Popconfirm
+                        title="删除该会话？"
+                        onConfirm={(e) => {
+                          e?.stopPropagation()
+                          onDeleteConversation(c.id)
+                        }}
+                        onCancel={(e) => e?.stopPropagation()}
+                      >
+                        <DeleteOutlined
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ color: '#98A2B3' }}
+                        />
+                      </Popconfirm>
+                    </div>
+                  ))}
+              </div>
+            )
+          })}
         </div>
       </div>
 
