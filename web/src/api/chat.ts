@@ -25,11 +25,20 @@ export interface ToolCall {
   query: string
 }
 
+export interface ChatAttachment {
+  file_name: string
+  text: string
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
-  meta_data: { citations?: Citation[]; tool_calls?: ToolCall[] } | null
+  meta_data: {
+    citations?: Citation[]
+    tool_calls?: ToolCall[]
+    attachments?: { file_name: string; text?: string }[]
+  } | null
   feedback?: 'up' | 'down' | null
   created_at: string
 }
@@ -38,6 +47,7 @@ export interface SendOptions {
   conversationId?: string
   message: string
   imageKeys?: string[]
+  attachments?: ChatAttachment[]
   enableKnowledge?: boolean
   enableMemory?: boolean
   enableWebSearch?: boolean
@@ -78,6 +88,16 @@ export const chatApi = {
       { headers: { 'Content-Type': 'multipart/form-data' } },
     )
   },
+  uploadFile(file: File) {
+    const form = new FormData()
+    form.append('file', file)
+    return client.post<
+      unknown,
+      Wrapped<{ file_name: string; text: string; chars: number; truncated: boolean }>
+    >('/chat/upload-file', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
   setFeedback(messageId: string, rating: 'up' | 'down') {
     return client.post<unknown, Wrapped<{ id: string; rating: string }>>(
       `/chat/messages/${messageId}/feedback`,
@@ -101,6 +121,7 @@ export async function streamChat(
       conversation_id: opts.conversationId ?? null,
       message: opts.message,
       image_keys: opts.imageKeys ?? [],
+      attachments: opts.attachments ?? [],
       enable_knowledge: opts.enableKnowledge ?? null,
       enable_memory: opts.enableMemory ?? null,
       enable_web_search: opts.enableWebSearch ?? null,

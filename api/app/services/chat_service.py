@@ -38,7 +38,27 @@ from app.schemas.chat_schema import ChatStreamRequest
 
 logger = get_logger(__name__)
 
-MAX_HISTORY_TURNS = 10
+MAX_HISTORY_TURNS = 20
+
+
+def _compose_with_attachments(user_text: str, attachments: list) -> str:
+    """把对话临时附件的全文拼到用户问题前，供模型阅读。
+
+    attachments 元素为 {file_name, text}（schema ChatAttachment 或历史 meta_data）。
+    无附件时原样返回。
+    """
+    if not attachments:
+        return user_text
+    parts: list[str] = []
+    for att in attachments:
+        name = att.get("file_name") if isinstance(att, dict) else getattr(att, "file_name", "")
+        text = att.get("text") if isinstance(att, dict) else getattr(att, "text", "")
+        if not text:
+            continue
+        parts.append(f"【用户上传的文档「{name}」内容如下】\n{text}\n【文档结束】")
+    if not parts:
+        return user_text
+    return "\n\n".join(parts) + f"\n\n基于以上文档内容，回答我的问题：\n{user_text}"
 
 
 def _sse(event: str, data: dict) -> str:
@@ -63,12 +83,23 @@ class ChatService:
         return await self.conv_repo.create(Conversation(user_id=user_id, title=title))
 
     async def _history_messages(self, conv_id: uuid.UUID) -> list:
-        """历史消息转 LangChain 消息（不含 system 与当前问题）。"""
+        """历史消息转 LangChain 消息（不含 system 与当前问题）。
+
+        当前问题会在主流程单独追加，故这里丢弃末尾那条 user 消息（即本轮刚落库的提问），
+        避免当前问题（含附件全文）在 prompt 中重复出现。
+        若某条历史 user 消息带对话附件（meta_data.attachments），把附件全文还原进
+        该轮 HumanMessage，使后续追问在历史窗口内仍能看到文档内容。
+        """
         out: list = []
         history = await self.msg_repo.recent_history(conv_id, MAX_HISTORY_TURNS)
+        # 丢弃末尾连续的 user 消息（本轮提问），它由主流程单独追加
+        while history and history[-1].role == ROLE_USER:
+            history.pop()
         for m in history:
             if m.role == ROLE_USER:
-                out.append(HumanMessage(content=m.content))
+                atts = (m.meta_data or {}).get("attachments") if m.meta_data else None
+                content = _compose_with_attachments(m.content, atts or [])
+                out.append(HumanMessage(content=content))
             elif m.role == ROLE_ASSISTANT:
                 out.append(AIMessage(content=m.content))
         return out
@@ -112,9 +143,18 @@ class ChatService:
             return
 
         yield _sse("meta", {"conversation_id": str(conv.id), "title": conv.title})
+        # 本轮附件（对话临时文档，不入知识库），存进 user 消息便于后续追问还原
+        attachments = [
+            {"file_name": a.file_name, "text": a.text} for a in body.attachments if a.text
+        ]
         if not skip_user_message:
             await self.msg_repo.add(
-                Message(conversation_id=conv.id, role=ROLE_USER, content=user_text)
+                Message(
+                    conversation_id=conv.id,
+                    role=ROLE_USER,
+                    content=user_text,
+                    meta_data={"attachments": attachments} if attachments else None,
+                )
             )
 
         try:
@@ -133,11 +173,13 @@ class ChatService:
 
         full_text = ""
         tool_calls: list[dict] = []
+        # 当前问题（含本轮附件全文）；多模态分支用纯问题
+        composed_text = _compose_with_attachments(user_text, attachments)
         try:
             if body.image_keys:
                 # 多模态输入：用多模态模型看图回答（不走工具编排）
                 async for token in self._stream_multimodal(
-                    user_id, system_prompt, history, user_text, body.image_keys
+                    user_id, system_prompt, history, composed_text, body.image_keys
                 ):
                     full_text += token
                     yield _sse("token", {"text": token})
@@ -147,7 +189,7 @@ class ChatService:
                 if system_prompt:
                     lc_messages.append(SystemMessage(content=system_prompt))
                 lc_messages.extend(history)
-                lc_messages.append(HumanMessage(content=user_text))
+                lc_messages.append(HumanMessage(content=composed_text))
                 async for chunk in model.astream(lc_messages):
                     if chunk.content:
                         full_text += chunk.content
@@ -158,7 +200,7 @@ class ChatService:
                 if system_prompt:
                     lc_messages.append(SystemMessage(content=system_prompt))
                 lc_messages.extend(history)
-                lc_messages.append(HumanMessage(content=user_text))
+                lc_messages.append(HumanMessage(content=composed_text))
                 async for ev in run_function_calling(model, tools, lc_messages):
                     full_text, tool_calls = await self._emit(
                         ev, full_text, tool_calls
@@ -168,7 +210,7 @@ class ChatService:
                         yield out
             else:
                 # 弱模型：ReAct
-                async for ev in run_react(model, tools, user_text, history, system_prompt):
+                async for ev in run_react(model, tools, composed_text, history, system_prompt):
                     full_text, tool_calls = await self._emit(
                         ev, full_text, tool_calls
                     )

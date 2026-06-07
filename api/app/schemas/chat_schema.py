@@ -12,6 +12,13 @@ class ConversationRenameRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=256)
 
 
+class ChatAttachment(BaseModel):
+    """对话临时附件：解析后的文档文本，仅服务本次对话，不进知识库。"""
+
+    file_name: str = Field(..., max_length=256)
+    text: str = Field(default="")
+
+
 class ChatStreamRequest(BaseModel):
     """发送消息（SSE 流式）。conversation_id 为空则自动新建会话。"""
 
@@ -19,6 +26,8 @@ class ChatStreamRequest(BaseModel):
     message: str = Field(..., min_length=1)
     # 多模态：图片 file_key 列表（阶段5 第③步接入）
     image_keys: list[str] = Field(default_factory=list)
+    # 对话临时附件（文档文本），仅本次对话上下文使用，不入库
+    attachments: list[ChatAttachment] = Field(default_factory=list)
     # 本轮工具开关（覆盖 agent 默认），None 表示用 agent 配置默认
     enable_knowledge: bool | None = None
     enable_memory: bool | None = None

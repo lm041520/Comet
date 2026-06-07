@@ -4,6 +4,7 @@ import {
   CopyOutlined,
   DislikeFilled,
   DislikeOutlined,
+  FileTextOutlined,
   LikeFilled,
   LikeOutlined,
   ReloadOutlined,
@@ -124,6 +125,38 @@ export default function MessageItem({
                   alt=""
                   style={{ maxWidth: 160, maxHeight: 160, borderRadius: 8 }}
                 />
+              ))}
+            </Space>
+          )}
+
+          {/* 用户消息附件（文档，仅显示文件名） */}
+          {isUser && msg.attachments && msg.attachments.length > 0 && (
+            <Space wrap style={{ marginBottom: 8 }}>
+              {msg.attachments.map((a, i) => (
+                <span
+                  key={i}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    background: 'rgba(255,255,255,0.18)',
+                    borderRadius: 8,
+                    padding: '4px 10px',
+                    fontSize: 13,
+                    maxWidth: 220,
+                  }}
+                >
+                  <FileTextOutlined />
+                  <span
+                    style={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {a.file_name}
+                  </span>
+                </span>
               ))}
             </Space>
           )}

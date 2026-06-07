@@ -18,6 +18,7 @@ import {
 import {
   InboxOutlined,
   LinkOutlined,
+  LoadingOutlined,
   ReloadOutlined,
 } from '@ant-design/icons'
 import {
@@ -52,6 +53,7 @@ export default function KnowledgePage() {
   // 检索模式
   const [searching, setSearching] = useState(false)
   const [hits, setHits] = useState<SearchHit[] | null>(null)
+  const [uploading, setUploading] = useState(false)
   const pollRef = useRef<number | null>(null)
 
   const loadFavorites = async () => {
@@ -118,13 +120,19 @@ export default function KnowledgePage() {
   }, [list, load, hits])
 
   const onUpload = async (file: File) => {
+    setUploading(true)
+    const hide = message.loading(`正在上传「${file.name}」，请稍候…`, 0)
     try {
       await documentApi.upload(file)
+      hide()
       message.success('上传成功，正在解析')
       setHits(null)
       load()
     } catch (e) {
+      hide()
       message.error((e as Error).message)
+    } finally {
+      setUploading(false)
     }
     return false
   }
@@ -278,16 +286,19 @@ export default function KnowledgePage() {
             showUploadList={false}
             beforeUpload={onUpload}
             multiple
+            disabled={uploading}
             className="kb-dragger"
           >
             <p className="ant-upload-drag-icon" style={{ marginBottom: 4 }}>
-              <InboxOutlined />
+              {uploading ? <LoadingOutlined /> : <InboxOutlined />}
             </p>
             <p className="ant-upload-text" style={{ fontSize: 14 }}>
-              点击或拖拽文件到此上传
+              {uploading ? '正在上传，请稍候…' : '点击或拖拽文件到此上传'}
             </p>
             <p className="ant-upload-hint" style={{ fontSize: 12 }}>
-              支持 PDF / Word / Markdown / TXT / HTML
+              {uploading
+                ? '大文件受网络带宽影响可能较慢，请勿关闭页面'
+                : '支持 PDF / Word / Markdown / TXT / HTML'}
             </p>
           </Dragger>
 

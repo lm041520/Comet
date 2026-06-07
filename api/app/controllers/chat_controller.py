@@ -114,6 +114,55 @@ async def upload_chat_image(
     return success({"file_key": file_key, "url": storage.get_url(file_key)})
 
 
+@router.post("/chat/upload-file")
+async def upload_chat_file(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+):
+    """对话临时附件：上传文档解析成纯文本，仅服务本次对话，不进知识库。
+
+    支持 PDF/Word/Markdown/TXT/HTML；文本超长截断，避免吃满上下文。
+    """
+    from pathlib import Path
+
+    from app.core.exceptions import BizError
+    from app.core.rag.parser import parse_document
+
+    # 对话附件文本上限（约覆盖十几页文档前部），超出截断
+    max_chars = 10000
+
+    file_name = file.filename or "文件"
+    ext = Path(file_name).suffix.lower()
+    allowed = {".pdf", ".docx", ".md", ".markdown", ".txt", ".html", ".htm"}
+    if ext not in allowed:
+        raise BizError("仅支持 PDF / Word / Markdown / TXT / HTML", code=3001)
+
+    content = await file.read()
+    try:
+        text = parse_document(ext, content)
+    except BizError:
+        raise
+    except Exception as e:
+        raise BizError(f"文档解析失败：{e}", code=3002) from e
+
+    text = (text or "").strip()
+    if not text:
+        raise BizError("未能从文档中解析出文本内容", code=3003)
+
+    truncated = len(text) > max_chars
+    if truncated:
+        text = text[:max_chars]
+
+    return success(
+        {
+            "file_name": file_name,
+            "text": text,
+            "chars": len(text),
+            "truncated": truncated,
+        }
+    )
+
+
 # ── 消息反馈 / 重新生成 ──
 
 @router.post("/chat/messages/{message_id}/feedback")

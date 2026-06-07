@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Button,
@@ -13,7 +13,10 @@ import {
 import {
   DeleteOutlined,
   DownOutlined,
+  FileTextOutlined,
   GlobalOutlined,
+  CloseOutlined,
+  PaperClipOutlined,
   PictureOutlined,
   PlusOutlined,
   RightOutlined,
@@ -44,6 +47,11 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false)
   const [webSearch, setWebSearch] = useState(false)
   const [pendingImages, setPendingImages] = useState<{ key: string; url: string }[]>([])
+  const [pendingFiles, setPendingFiles] = useState<
+    { file_name: string; text: string }[]
+  >([])
+  const [dragOver, setDragOver] = useState(false)
+  const dragCounter = useRef(0)
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const msgRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -128,6 +136,9 @@ export default function ChatPage() {
           content: m.content,
           citations: m.meta_data?.citations,
           toolCalls: m.meta_data?.tool_calls,
+          attachments: m.meta_data?.attachments?.map((a) => ({
+            file_name: a.file_name,
+          })),
           conversationId: id,
           favId: favByMsg[m.id] ?? null,
           feedback: m.feedback ?? null,
@@ -226,13 +237,78 @@ export default function ChatPage() {
     return false // 阻止 antd 默认上传
   }
 
+  const onUploadFile = async (file: File) => {
+    const hide = antdMessage.loading(`正在解析「${file.name}」…`, 0)
+    try {
+      const { data } = await chatApi.uploadFile(file)
+      hide()
+      setPendingFiles((prev) => [...prev, { file_name: data.file_name, text: data.text }])
+      if (data.truncated) {
+        antdMessage.warning(`文档较大，已截取前 ${data.chars} 字用于本次对话`)
+      } else {
+        antdMessage.success(`已附加「${data.file_name}」`)
+      }
+    } catch (e) {
+      hide()
+      antdMessage.error((e as Error).message)
+    }
+    return false // 阻止 antd 默认上传
+  }
+
+  // 拖拽到对话区上传：图片走多模态，文档走临时附件，按扩展名/类型分流
+  const DOC_EXTS = ['.pdf', '.docx', '.md', '.markdown', '.txt', '.html', '.htm']
+  const handleDroppedFiles = async (files: FileList) => {
+    for (const file of Array.from(files)) {
+      const isImage = file.type.startsWith('image/')
+      const lower = file.name.toLowerCase()
+      const isDoc = DOC_EXTS.some((ext) => lower.endsWith(ext))
+      if (isImage) {
+        await onUploadImage(file)
+      } else if (isDoc) {
+        await onUploadFile(file)
+      } else {
+        antdMessage.warning(`不支持的文件类型：${file.name}`)
+      }
+    }
+  }
+
+  const onDragEnter = (e: DragEvent) => {
+    if (e.dataTransfer.types?.includes('Files')) {
+      e.preventDefault()
+      dragCounter.current += 1
+      setDragOver(true)
+    }
+  }
+  const onDragOver = (e: DragEvent) => {
+    if (e.dataTransfer.types?.includes('Files')) e.preventDefault()
+  }
+  const onDragLeave = (e: DragEvent) => {
+    if (e.dataTransfer.types?.includes('Files')) {
+      dragCounter.current -= 1
+      if (dragCounter.current <= 0) {
+        dragCounter.current = 0
+        setDragOver(false)
+      }
+    }
+  }
+  const onDrop = (e: DragEvent) => {
+    e.preventDefault()
+    dragCounter.current = 0
+    setDragOver(false)
+    if (e.dataTransfer.files?.length) {
+      void handleDroppedFiles(e.dataTransfer.files)
+    }
+  }
+
   const onSend = async () => {
     const text = input.trim()
     if (!text || sending) return
     setSending(true)
     setInput('')
     const imgs = pendingImages
+    const files = pendingFiles
     setPendingImages([])
+    setPendingFiles([])
 
     // 先插入用户消息 + 占位的 AI 消息
     const now = new Date().toISOString()
@@ -241,6 +317,7 @@ export default function ChatPage() {
       role: 'user',
       content: text,
       images: imgs.map((i) => i.url),
+      attachments: files.map((f) => ({ file_name: f.file_name })),
       createdAt: now,
     }
     const aiMsg: UiMessage = {
@@ -258,6 +335,7 @@ export default function ChatPage() {
         conversationId: convId,
         message: text,
         imageKeys: imgs.map((i) => i.key),
+        attachments: files,
         enableWebSearch: webSearch,
       },
       {
@@ -406,7 +484,27 @@ export default function ChatPage() {
       </div>
 
       {/* 对话主区 */}
-      <div className="chat-main">
+      <div
+        className="chat-main"
+        style={{ position: 'relative' }}
+        onDragEnter={onDragEnter}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+      >
+        {dragOver && (
+          <div className="chat-drop-overlay">
+            <div className="chat-drop-inner">
+              <PaperClipOutlined style={{ fontSize: 34 }} />
+              <div style={{ fontSize: 17, fontWeight: 600, marginTop: 10 }}>
+                松开以添加到本次对话
+              </div>
+              <div style={{ fontSize: 13, color: '#667085', marginTop: 4 }}>
+                支持图片与文档（PDF / Word / Markdown / TXT / HTML）
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '28px 0' }}>
           {messages.length === 0 ? (
             <div className="chat-empty">
@@ -476,6 +574,24 @@ export default function ChatPage() {
                 ))}
               </Space>
             )}
+            {pendingFiles.length > 0 && (
+              <Space wrap style={{ marginBottom: 10 }}>
+                {pendingFiles.map((f, i) => (
+                  <div key={i} className="chat-file-chip">
+                    <FileTextOutlined style={{ color: '#155EEF' }} />
+                    <span className="chat-file-chip__name" title={f.file_name}>
+                      {f.file_name}
+                    </span>
+                    <CloseOutlined
+                      className="chat-file-chip__del"
+                      onClick={() =>
+                        setPendingFiles((prev) => prev.filter((_, idx) => idx !== i))
+                      }
+                    />
+                  </div>
+                ))}
+              </Space>
+            )}
             <div className="chat-input-box">
               <Input.TextArea
                 value={input}
@@ -503,6 +619,15 @@ export default function ChatPage() {
                   <Upload accept="image/*" showUploadList={false} beforeUpload={onUploadImage as never}>
                     <Tooltip title="上传图片">
                       <Button type="text" icon={<PictureOutlined style={{ fontSize: 19 }} />} />
+                    </Tooltip>
+                  </Upload>
+                  <Upload
+                    accept=".pdf,.docx,.md,.markdown,.txt,.html,.htm"
+                    showUploadList={false}
+                    beforeUpload={onUploadFile as never}
+                  >
+                    <Tooltip title="上传文档（仅本次对话，不进知识库）">
+                      <Button type="text" icon={<PaperClipOutlined style={{ fontSize: 19 }} />} />
                     </Tooltip>
                   </Upload>
                   <Tooltip title="联网搜索">

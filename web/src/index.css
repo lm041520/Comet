@@ -1561,3 +1561,52 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* 对话输入区：待发送的文档附件 chip */
+.chat-file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 240px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #f2f5ff;
+  border: 1px solid #dbe4ff;
+  font-size: 13px;
+  color: #344054;
+}
+.chat-file-chip__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-file-chip__del {
+  color: #98a2b3;
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.chat-file-chip__del:hover {
+  color: #ff5d34;
+}
+
+
+/* 对话区拖拽上传遮罩 */
+.chat-drop-overlay {
+  position: absolute;
+  inset: 8px;
+  z-index: 20;
+  border-radius: 12px;
+  border: 2px dashed #155eef;
+  background: rgba(238, 244, 255, 0.92);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.chat-drop-inner {
+  text-align: center;
+  color: #155eef;
+}

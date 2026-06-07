@@ -16,7 +16,7 @@ import {
   Upload,
   message,
 } from 'antd'
-import { DeleteOutlined, InboxOutlined } from '@ant-design/icons'
+import { DeleteOutlined, InboxOutlined, LoadingOutlined } from '@ant-design/icons'
 import {
   imageApi,
   type ImageItem,
@@ -130,6 +130,7 @@ export default function ImagePage() {
   const [favMap, setFavMap] = useState<Record<string, string>>({})
   const [searching, setSearching] = useState(false)
   const [hits, setHits] = useState<(ImageSearchHit & { img?: ImageItem })[] | null>(null)
+  const [uploading, setUploading] = useState(false)
   const pollRef = useRef<number | null>(null)
 
   const loadFavorites = async () => {
@@ -203,13 +204,19 @@ export default function ImagePage() {
   }, [list, load, hits])
 
   const onUpload = async (file: File) => {
+    setUploading(true)
+    const hide = message.loading(`正在上传「${file.name}」，请稍候…`, 0)
     try {
       await imageApi.upload(file)
+      hide()
       message.success('上传成功，正在识别')
       setHits(null)
       load()
     } catch (e) {
+      hide()
       message.error((e as Error).message)
+    } finally {
+      setUploading(false)
     }
     return false
   }
@@ -271,13 +278,20 @@ export default function ImagePage() {
               showUploadList={false}
               beforeUpload={onUpload}
               multiple
+              disabled={uploading}
               style={{ marginBottom: 16 }}
             >
               <p className="ant-upload-drag-icon">
-                <InboxOutlined />
+                {uploading ? <LoadingOutlined /> : <InboxOutlined />}
               </p>
-              <p className="ant-upload-text">点击或拖拽图片上传</p>
-              <p className="ant-upload-hint">AI 自动生成描述、OCR、物体与场景，可被搜索</p>
+              <p className="ant-upload-text">
+                {uploading ? '正在上传，请稍候…' : '点击或拖拽图片上传'}
+              </p>
+              <p className="ant-upload-hint">
+                {uploading
+                  ? '受网络带宽影响可能较慢，请勿关闭页面'
+                  : 'AI 自动生成描述、OCR、物体与场景，可被搜索'}
+              </p>
             </Upload.Dragger>
 
             <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 8 }}>

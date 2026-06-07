@@ -8,6 +8,7 @@ export interface UiMessage {
   citations?: Citation[]
   toolCalls?: ToolCall[]
   images?: string[] // 图片 url（用户消息）
+  attachments?: { file_name: string }[] // 对话临时文档附件（仅显示文件名）
   streaming?: boolean
   conversationId?: string // 所属会话（收藏深链用）
   favId?: string | null // 已收藏时的收藏记录 id（高亮+取消用）
