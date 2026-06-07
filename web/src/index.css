@@ -1530,16 +1530,10 @@ body {
     max-width: 100%;
   }
 
-  /* 对话页：会话列表改为顶部横向条，主区在下，纵向堆叠 */
-  .chat-layout {
-    flex-direction: column;
-  }
-  .chat-sidebar {
-    width: 100%;
-    max-height: 38vh;
-  }
+  /* 对话页：会话列表收进抽屉，对话区占满全屏 */
   .chat-main {
-    min-height: 50vh;
+    border-radius: 0;
+    min-height: 100%;
   }
 
   /* 对话消息与输入区在手机上减小左右留白 */
@@ -1609,4 +1603,108 @@ body {
 .chat-drop-inner {
   text-align: center;
   color: #155eef;
+}
+
+
+/* 对话页移动端顶部条（打开会话抽屉 / 新对话） */
+.chat-mobile-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+
+/* ── 顶栏居中搜索框（炫酷玻璃质感 + 聚焦光晕）── */
+.top-search.ant-input-affix-wrapper {
+  height: 38px;
+  border-radius: 999px;
+  background: #f4f6fb;
+  border: 1px solid transparent;
+  transition: all 0.25s ease;
+  box-shadow: inset 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+.top-search.ant-input-affix-wrapper:hover {
+  background: #eef1f8;
+  border-color: #dbe2f0;
+}
+.top-search.ant-input-affix-wrapper-focused,
+.top-search.ant-input-affix-wrapper:focus-within {
+  background: #fff;
+  border-color: #155eef;
+  box-shadow: 0 0 0 4px rgba(21, 94, 239, 0.12);
+}
+.top-search .ant-input {
+  background: transparent;
+  font-size: 14px;
+}
+.top-search .ant-input-prefix {
+  margin-inline-end: 8px;
+}
+
+/* 沉浸式（音乐页）深色变体 */
+.top-search--dark.ant-input-affix-wrapper {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}
+.top-search--dark.ant-input-affix-wrapper:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.top-search--dark.ant-input-affix-wrapper-focused,
+.top-search--dark.ant-input-affix-wrapper:focus-within {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(124, 156, 255, 0.7);
+  box-shadow: 0 0 0 4px rgba(124, 156, 255, 0.18);
+}
+.top-search--dark .ant-input {
+  color: #fff;
+}
+.top-search--dark .ant-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+.top-search--dark .ant-input-prefix .anticon,
+.top-search--dark .ant-input-clear-icon {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
+
+/* 手机端：播放器悬浮时，对话输入区上移避让，避免被遮挡 */
+@media (max-width: 768px) {
+  .chat-input-bar--player {
+    padding-bottom: 84px;
+  }
+  /* 手机端播放器收窄并贴底居中，不压住输入发送按钮 */
+  .player-shell {
+    right: 12px;
+    left: 12px;
+    bottom: 12px;
+    width: auto !important;
+    max-width: none;
+  }
+}
+
+
+/* 手机端：音乐厅顶部三个操作按钮自适应排布，避免显示不全 */
+@media (max-width: 768px) {
+  .music-actions {
+    width: 100%;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px !important;
+  }
+  /* AntD Space 用 item 包裹，需让其撑满网格单元 */
+  .music-actions > .ant-space-item {
+    width: 100%;
+  }
+  .music-actions .ant-btn {
+    width: 100%;
+  }
+  /* 「添加歌曲」主按钮占整行，更醒目 */
+  .music-actions > .ant-space-item:last-child {
+    grid-column: 1 / -1;
+  }
 }

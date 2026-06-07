@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Button,
+  Drawer,
   Input,
   Popconfirm,
   Space,
@@ -16,6 +17,7 @@ import {
   FileTextOutlined,
   GlobalOutlined,
   CloseOutlined,
+  HistoryOutlined,
   PaperClipOutlined,
   PictureOutlined,
   PlusOutlined,
@@ -35,6 +37,7 @@ import { AuthenticatedImage } from '@/components/AuthenticatedImage'
 import MessageItem from './chat/MessageItem'
 import type { UiMessage } from './chat/types'
 import { groupConversationsByDate } from './chat/groupByDate'
+import { useMusicStore } from '@/stores/musicStore'
 
 export default function ChatPage() {
   const [params, setParams] = useSearchParams()
@@ -53,6 +56,19 @@ export default function ChatPage() {
   const [dragOver, setDragOver] = useState(false)
   const dragCounter = useRef(0)
   const [highlightId, setHighlightId] = useState<string | null>(null)
+  // 移动端：会话列表收进抽屉，对话区占满
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= 768,
+  )
+  const [convDrawerOpen, setConvDrawerOpen] = useState(false)
+  // 播放器可见时，输入区在手机上需上移避让
+  const playerVisible = useMusicStore((s) => s.visible)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
   const scrollRef = useRef<HTMLDivElement>(null)
   const msgRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const groupsInited = useRef(false)
@@ -120,6 +136,7 @@ export default function ChatPage() {
 
   const openConversation = async (id: string, focusMessageId?: string) => {
     setActiveId(id)
+    setConvDrawerOpen(false)
     try {
       const [{ data }, favResp] = await Promise.all([
         chatApi.listMessages(id),
@@ -164,6 +181,7 @@ export default function ChatPage() {
   const newConversation = () => {
     setActiveId(undefined)
     setMessages([])
+    setConvDrawerOpen(false)
   }
 
   // 重新生成某条 AI 回复：替换该条消息内容，重新流式
@@ -409,6 +427,69 @@ export default function ChatPage() {
     '根据我的记忆，给我一些建议',
   ]
 
+  const sidebar = (
+    <div className="chat-sidebar">
+      <div style={{ padding: 16 }}>
+        <Button
+          type="primary"
+          block
+          size="large"
+          icon={<PlusOutlined />}
+          onClick={newConversation}
+          className="chat-new-btn"
+        >
+          新对话
+        </Button>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 10px 10px' }}>
+        {conversations.length === 0 && (
+          <div className="chat-conv-empty">还没有对话，点上方开始</div>
+        )}
+        {convGroups.map((group) => {
+          const collapsed = collapsedGroups.has(group.key)
+          return (
+            <div key={group.key} style={{ marginBottom: 6 }}>
+              <div onClick={() => toggleGroup(group.key)} className="chat-group-title">
+                {collapsed ? (
+                  <RightOutlined style={{ fontSize: 10 }} />
+                ) : (
+                  <DownOutlined style={{ fontSize: 10 }} />
+                )}
+                <span>{group.label}</span>
+                <span style={{ color: '#CBD2DC', fontWeight: 400 }}>
+                  {group.items.length}
+                </span>
+              </div>
+              {!collapsed &&
+                group.items.map((c) => (
+                  <div
+                    key={c.id}
+                    onClick={() => openConversation(c.id)}
+                    className={`chat-conv-item${c.id === activeId ? ' active' : ''}`}
+                  >
+                    <span className="chat-conv-title">{c.title}</span>
+                    <Popconfirm
+                      title="删除该会话？"
+                      onConfirm={(e) => {
+                        e?.stopPropagation()
+                        onDeleteConversation(c.id)
+                      }}
+                      onCancel={(e) => e?.stopPropagation()}
+                    >
+                      <DeleteOutlined
+                        onClick={(e) => e.stopPropagation()}
+                        className="chat-conv-del"
+                      />
+                    </Popconfirm>
+                  </div>
+                ))}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+
   return (
     <div
       className="chat-layout"
@@ -418,70 +499,21 @@ export default function ChatPage() {
         gap: 16,
       }}
     >
-      {/* 会话列表 */}
-      <div className="chat-sidebar">
-        <div style={{ padding: 16 }}>
-          <Button
-            type="primary"
-            block
-            size="large"
-            icon={<PlusOutlined />}
-            onClick={newConversation}
-            className="chat-new-btn"
-          >
-            新对话
-          </Button>
-        </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 10px 10px' }}>
-          {conversations.length === 0 && (
-            <div className="chat-conv-empty">还没有对话，点上方开始</div>
-          )}
-          {convGroups.map((group) => {
-            const collapsed = collapsedGroups.has(group.key)
-            return (
-              <div key={group.key} style={{ marginBottom: 6 }}>
-                <div
-                  onClick={() => toggleGroup(group.key)}
-                  className="chat-group-title"
-                >
-                  {collapsed ? (
-                    <RightOutlined style={{ fontSize: 10 }} />
-                  ) : (
-                    <DownOutlined style={{ fontSize: 10 }} />
-                  )}
-                  <span>{group.label}</span>
-                  <span style={{ color: '#CBD2DC', fontWeight: 400 }}>
-                    {group.items.length}
-                  </span>
-                </div>
-                {!collapsed &&
-                  group.items.map((c) => (
-                    <div
-                      key={c.id}
-                      onClick={() => openConversation(c.id)}
-                      className={`chat-conv-item${c.id === activeId ? ' active' : ''}`}
-                    >
-                      <span className="chat-conv-title">{c.title}</span>
-                      <Popconfirm
-                        title="删除该会话？"
-                        onConfirm={(e) => {
-                          e?.stopPropagation()
-                          onDeleteConversation(c.id)
-                        }}
-                        onCancel={(e) => e?.stopPropagation()}
-                      >
-                        <DeleteOutlined
-                          onClick={(e) => e.stopPropagation()}
-                          className="chat-conv-del"
-                        />
-                      </Popconfirm>
-                    </div>
-                  ))}
-              </div>
-            )
-          })}
-        </div>
-      </div>
+      {/* 会话列表：桌面常驻；移动端收进抽屉 */}
+      {isMobile ? (
+        <Drawer
+          placement="left"
+          open={convDrawerOpen}
+          onClose={() => setConvDrawerOpen(false)}
+          width={280}
+          closable={false}
+          styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column' } }}
+        >
+          {sidebar}
+        </Drawer>
+      ) : (
+        sidebar
+      )}
 
       {/* 对话主区 */}
       <div
@@ -503,6 +535,21 @@ export default function ChatPage() {
                 支持图片与文档（PDF / Word / Markdown / TXT / HTML）
               </div>
             </div>
+          </div>
+        )}
+        {/* 移动端顶部条：打开会话列表 + 新对话 */}
+        {isMobile && (
+          <div className="chat-mobile-bar">
+            <Button
+              type="text"
+              icon={<HistoryOutlined />}
+              onClick={() => setConvDrawerOpen(true)}
+            >
+              会话
+            </Button>
+            <Button type="text" icon={<PlusOutlined />} onClick={newConversation}>
+              新对话
+            </Button>
           </div>
         )}
         <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '28px 0' }}>
@@ -547,7 +594,11 @@ export default function ChatPage() {
         </div>
 
         {/* 输入区 */}
-        <div className="chat-input-bar">
+        <div
+          className={`chat-input-bar${
+            isMobile && playerVisible ? ' chat-input-bar--player' : ''
+          }`}
+        >
           <div className="fluid-narrow" style={{ padding: '0 24px' }}>
             {pendingImages.length > 0 && (
               <Space wrap style={{ marginBottom: 10 }}>

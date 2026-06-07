@@ -206,7 +206,7 @@ export default function MainLayout() {
             transition: 'background 0.4s',
           }}
         >
-          <Space size={isMobile ? 6 : 12} style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
             <Button
               type="text"
               aria-label="菜单"
@@ -222,18 +222,33 @@ export default function MainLayout() {
               onClick={() =>
                 isMobile ? setDrawerOpen(true) : setCollapsed((c) => !c)
               }
-              style={{ color: immersive ? '#fff' : undefined, fontSize: 18, flexShrink: 0 }}
+              style={{ color: immersive ? '#fff' : undefined, fontSize: 18 }}
             />
-            <Input.Search
-              placeholder="搜索文档、图片、记忆…"
+          </div>
+
+          {/* 居中搜索框 */}
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              justifyContent: 'center',
+              minWidth: 0,
+              padding: isMobile ? '0 8px' : '0 16px',
+            }}
+          >
+            <Input
+              className={`top-search${immersive ? ' top-search--dark' : ''}`}
+              prefix={<SearchOutlined style={{ color: '#98A2B3' }} />}
+              placeholder={isMobile ? '搜索…' : '搜索文档、图片、记忆…'}
               allowClear
-              style={{ maxWidth: 420, width: isMobile ? '100%' : '40vw' }}
-              onSearch={(v) => {
-                const q = v.trim()
+              style={{ width: '100%', maxWidth: 560 }}
+              onPressEnter={(e) => {
+                const q = (e.target as HTMLInputElement).value.trim()
                 if (q) navigate(`/search?q=${encodeURIComponent(q)}`)
               }}
             />
-          </Space>
+          </div>
+
           <Dropdown
             menu={{
               items: [

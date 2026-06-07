@@ -162,7 +162,7 @@ export default function MusicLibraryPage() {
               共 {songs.length} 首 · 情绪标签由 AI 自动标注
             </div>
           </div>
-          <Space>
+          <Space className="music-actions" wrap>
             <Button
               ghost
               icon={<TagsOutlined />}
