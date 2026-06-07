@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     # 安全
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
-    refresh_token_expire_days: int = 7
+    access_token_expire_minutes: int = 10080  # 7 天（免频繁重登）
+    refresh_token_expire_days: int = 30
     fernet_key: str = "change-me-fernet-key"
 
     # PostgreSQL

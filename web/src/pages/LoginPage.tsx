@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { Button, Form, Input, Tabs, message } from 'antd'
+import { useEffect, useRef, useState } from 'react'
+import { Button, Checkbox, Form, Input, Tabs, message } from 'antd'
 import { LockOutlined, MailOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
@@ -10,13 +10,35 @@ interface FormValues {
   password: string
 }
 
+const LS_REMEMBER = 'comet_remember'
+
 export default function LoginPage() {
   const navigate = useNavigate()
   const login = useAuthStore((s) => s.login)
   const register = useAuthStore((s) => s.register)
   const [tab, setTab] = useState('login')
   const [loading, setLoading] = useState(false)
+  const [loginForm] = Form.useForm()
+  const [rememberAccount, setRememberAccount] = useState(true)
+  const [rememberPassword, setRememberPassword] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
+
+  // 进入页面回填记住的账号/密码
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LS_REMEMBER)
+      if (!raw) return
+      const saved = JSON.parse(raw) as { email?: string; password?: string }
+      if (saved.email) {
+        loginForm.setFieldsValue({ email: saved.email, password: saved.password ?? '' })
+        setRememberAccount(true)
+        setRememberPassword(!!saved.password)
+      }
+    } catch {
+      // 回填失败忽略
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // 鼠标视差：卡片随鼠标轻微倾斜
   const onMouseMove = (e: React.MouseEvent) => {
@@ -38,6 +60,18 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await login(v.email.trim(), v.password)
+      // 记住账号/密码
+      if (rememberAccount) {
+        localStorage.setItem(
+          LS_REMEMBER,
+          JSON.stringify({
+            email: v.email.trim(),
+            password: rememberPassword ? v.password : undefined,
+          }),
+        )
+      } else {
+        localStorage.removeItem(LS_REMEMBER)
+      }
       message.success('登录成功')
       navigate('/', { replace: true })
     } catch (e) {
@@ -60,8 +94,13 @@ export default function LoginPage() {
     }
   }
 
-  const renderForm = (onFinish: (v: FormValues) => void, submitText: string) => (
+  const renderForm = (
+    onFinish: (v: FormValues) => void,
+    submitText: string,
+    isLogin: boolean,
+  ) => (
     <Form
+      form={isLogin ? loginForm : undefined}
       layout="vertical"
       onFinish={onFinish}
       disabled={loading}
@@ -118,6 +157,36 @@ export default function LoginPage() {
             autoComplete="new-password"
           />
         </Form.Item>
+      )}
+      {isLogin && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            marginBottom: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Checkbox
+            checked={rememberAccount}
+            onChange={(e) => {
+              setRememberAccount(e.target.checked)
+              if (!e.target.checked) setRememberPassword(false)
+            }}
+            style={{ color: 'rgba(255,255,255,0.8)' }}
+          >
+            记住账号
+          </Checkbox>
+          <Checkbox
+            checked={rememberPassword}
+            disabled={!rememberAccount}
+            onChange={(e) => setRememberPassword(e.target.checked)}
+            style={{ color: 'rgba(255,255,255,0.8)' }}
+          >
+            记住密码
+          </Checkbox>
+        </div>
       )}
       <Form.Item style={{ marginBottom: 0, marginTop: 4 }}>
         <Button
@@ -181,11 +250,11 @@ export default function LoginPage() {
           onChange={setTab}
           centered
           items={[
-            { key: 'login', label: '登录', children: renderForm(onLogin, '登录') },
+            { key: 'login', label: '登录', children: renderForm(onLogin, '登录', true) },
             {
               key: 'register',
               label: '注册',
-              children: renderForm(onRegister, '注册'),
+              children: renderForm(onRegister, '注册', false),
             },
           ]}
         />
