@@ -6,10 +6,12 @@ import {
   CustomerServiceOutlined,
   DeploymentUnitOutlined,
   HddOutlined,
+  HistoryOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   PictureOutlined,
+  PlusOutlined,
   RobotOutlined,
   SearchOutlined,
   SettingOutlined,
@@ -20,6 +22,7 @@ import {
 import { useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
+import { useChatHeaderStore } from '@/stores/chatHeaderStore'
 import { AuthenticatedImage } from '@/components/AuthenticatedImage'
 import MusicPlayer from '@/components/MusicPlayer'
 import logo from '@/images/logo.png'
@@ -86,6 +89,11 @@ export default function MainLayout() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const isMobile = useIsMobile()
+  // 聊天页注册的顶栏操作（手机端聊天页用它替代搜索框，合并成一行）
+  const chatHeaderActive = useChatHeaderStore((s) => s.active)
+  const chatOpenHistory = useChatHeaderStore((s) => s.openHistory)
+  const chatNewChat = useChatHeaderStore((s) => s.newChat)
+  const showChatHeader = isMobile && chatHeaderActive && location.pathname === '/chat'
 
   // 桌面端：侧边栏折叠（窄条）；移动端：抽屉开关
   const [collapsed, setCollapsed] = useState(false)
@@ -226,28 +234,57 @@ export default function MainLayout() {
             />
           </div>
 
-          {/* 居中搜索框 */}
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              justifyContent: 'center',
-              minWidth: 0,
-              padding: isMobile ? '0 8px' : '0 16px',
-            }}
-          >
-            <Input
-              className={`top-search${immersive ? ' top-search--dark' : ''}`}
-              prefix={<SearchOutlined style={{ color: '#98A2B3' }} />}
-              placeholder={isMobile ? '搜索…' : '搜索文档、图片、记忆…'}
-              allowClear
-              style={{ width: '100%', maxWidth: 560 }}
-              onPressEnter={(e) => {
-                const q = (e.target as HTMLInputElement).value.trim()
-                if (q) navigate(`/search?q=${encodeURIComponent(q)}`)
+          {/* 中间区：手机端聊天页显示「会话 / 新对话」，其余页面显示搜索框 */}
+          {showChatHeader ? (
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: 8,
+                minWidth: 0,
+                padding: '0 8px',
               }}
-            />
-          </div>
+            >
+              <Button
+                type="text"
+                icon={<HistoryOutlined />}
+                onClick={() => chatOpenHistory?.()}
+              >
+                会话
+              </Button>
+              <Button
+                type="text"
+                icon={<PlusOutlined />}
+                onClick={() => chatNewChat?.()}
+              >
+                新对话
+              </Button>
+            </div>
+          ) : (
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                justifyContent: 'center',
+                minWidth: 0,
+                padding: isMobile ? '0 8px' : '0 16px',
+              }}
+            >
+              <Input
+                className={`top-search${immersive ? ' top-search--dark' : ''}`}
+                prefix={<SearchOutlined style={{ color: '#98A2B3' }} />}
+                placeholder={isMobile ? '搜索…' : '搜索文档、图片、记忆…'}
+                allowClear
+                style={{ width: '100%', maxWidth: 560 }}
+                onPressEnter={(e) => {
+                  const q = (e.target as HTMLInputElement).value.trim()
+                  if (q) navigate(`/search?q=${encodeURIComponent(q)}`)
+                }}
+              />
+            </div>
+          )}
 
           <Dropdown
             menu={{

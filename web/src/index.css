@@ -1656,24 +1656,6 @@ body {
 }
 
 
-/* 对话页移动端顶部条（打开会话抽屉 / 新对话） */
-.chat-mobile-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 10px 10px 0;
-  padding: 6px 8px;
-  background: #f7f9fc;
-  border: 1px solid #eef0f4;
-  border-radius: 12px;
-  flex-shrink: 0;
-}
-.chat-mobile-bar .ant-btn {
-  border-radius: 10px;
-}
-
-
 /* ── 顶栏居中搜索框（炫酷玻璃质感 + 聚焦光晕）── */
 .top-search.ant-input-affix-wrapper {
   height: 38px;

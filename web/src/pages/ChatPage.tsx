@@ -5,6 +5,7 @@ import {
   Drawer,
   Input,
   Popconfirm,
+  Popover,
   Space,
   Switch,
   Tooltip,
@@ -18,7 +19,6 @@ import {
   FileTextOutlined,
   GlobalOutlined,
   CloseOutlined,
-  HistoryOutlined,
   PaperClipOutlined,
   PictureOutlined,
   PlusOutlined,
@@ -38,6 +38,7 @@ import MessageItem from './chat/MessageItem'
 import type { ChatAvatars, UiMessage } from './chat/types'
 import { groupConversationsByDate } from './chat/groupByDate'
 import { useMusicStore } from '@/stores/musicStore'
+import { useChatHeaderStore } from '@/stores/chatHeaderStore'
 import { personaApi } from '@/api/personas'
 import { agentConfigApi } from '@/api/agentConfig'
 import { authApi } from '@/api/auth'
@@ -217,6 +218,18 @@ export default function ChatPage() {
     setMessages([])
     setConvDrawerOpen(false)
   }
+
+  // 手机端：把「会话历史 / 新对话」操作注册到全局顶栏（替代搜索框，合并成一行）
+  const registerChatHeader = useChatHeaderStore((s) => s.register)
+  const clearChatHeader = useChatHeaderStore((s) => s.clear)
+  useEffect(() => {
+    registerChatHeader({
+      openHistory: () => setConvDrawerOpen(true),
+      newChat: newConversation,
+    })
+    return () => clearChatHeader()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // 重新生成某条 AI 回复：替换该条消息内容，重新流式
   const onRegenerate = async (target: UiMessage) => {
@@ -571,21 +584,6 @@ export default function ChatPage() {
             </div>
           </div>
         )}
-        {/* 移动端顶部条：打开会话列表 + 新对话 */}
-        {isMobile && (
-          <div className="chat-mobile-bar">
-            <Button
-              type="text"
-              icon={<HistoryOutlined />}
-              onClick={() => setConvDrawerOpen(true)}
-            >
-              会话
-            </Button>
-            <Button type="text" icon={<PlusOutlined />} onClick={newConversation}>
-              新对话
-            </Button>
-          </div>
-        )}
         <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '28px 0' }}>
           {messages.length === 0 ? (
             <div className="chat-empty">
@@ -678,53 +676,68 @@ export default function ChatPage() {
               </Space>
             )}
             <div className="chat-input-box">
-              <Input.TextArea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onPressEnter={(e) => {
-                  if (!e.shiftKey) {
-                    e.preventDefault()
-                    onSend()
-                  }
-                }}
-                placeholder={isMobile ? '输入消息…' : '输入消息，Enter 发送，Shift+Enter 换行'}
-                variant="borderless"
-                autoSize={{ minRows: isMobile ? 1 : 2, maxRows: isMobile ? 5 : 8 }}
-                style={{ fontSize: 16, padding: 0, resize: 'none' }}
-              />
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginTop: isMobile ? 4 : 10,
-                }}
-              >
-                <Space size={isMobile ? 'small' : 'large'}>
-                  <Upload accept="image/*" showUploadList={false} beforeUpload={onUploadImage as never}>
-                    <Tooltip title="上传图片">
-                      <Button type="text" size={isMobile ? 'small' : 'middle'} icon={<PictureOutlined style={{ fontSize: isMobile ? 17 : 19 }} />} />
-                    </Tooltip>
-                  </Upload>
-                  <Upload
-                    accept=".pdf,.docx,.md,.markdown,.txt,.html,.htm"
-                    showUploadList={false}
-                    beforeUpload={onUploadFile as never}
+              {isMobile ? (
+                // 手机端：单行紧凑 —— [＋ 工具] [输入框] [发送箭头]
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                  <Popover
+                    trigger="click"
+                    placement="topLeft"
+                    content={
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 160 }}>
+                        <Upload accept="image/*" showUploadList={false} beforeUpload={onUploadImage as never}>
+                          <Button type="text" block style={{ textAlign: 'left' }} icon={<PictureOutlined />}>
+                            图片
+                          </Button>
+                        </Upload>
+                        <Upload
+                          accept=".pdf,.docx,.md,.markdown,.txt,.html,.htm"
+                          showUploadList={false}
+                          beforeUpload={onUploadFile as never}
+                        >
+                          <Button type="text" block style={{ textAlign: 'left' }} icon={<PaperClipOutlined />}>
+                            文档
+                          </Button>
+                        </Upload>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '4px 8px',
+                          }}
+                        >
+                          <span>
+                            <GlobalOutlined
+                              style={{ marginRight: 6, color: webSearch ? '#155EEF' : '#98A2B3' }}
+                            />
+                            联网搜索
+                          </span>
+                          <Switch size="small" checked={webSearch} onChange={setWebSearch} />
+                        </div>
+                      </div>
+                    }
                   >
-                    <Tooltip title="上传文档（仅本次对话，不进知识库）">
-                      <Button type="text" size={isMobile ? 'small' : 'middle'} icon={<PaperClipOutlined style={{ fontSize: isMobile ? 17 : 19 }} />} />
-                    </Tooltip>
-                  </Upload>
-                  <Tooltip title="联网搜索">
-                    <Space size={6}>
-                      <GlobalOutlined
-                        style={{ fontSize: isMobile ? 16 : 18, color: webSearch ? '#155EEF' : '#98A2B3' }}
-                      />
-                      <Switch size="small" checked={webSearch} onChange={setWebSearch} />
-                    </Space>
-                  </Tooltip>
-                </Space>
-                {isMobile ? (
+                    <Button
+                      type="text"
+                      shape="circle"
+                      icon={<PlusOutlined style={{ fontSize: 18 }} />}
+                      style={{ flexShrink: 0, color: webSearch ? '#155EEF' : undefined }}
+                    />
+                  </Popover>
+                  <Input.TextArea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onPressEnter={(e) => {
+                      if (!e.shiftKey) {
+                        e.preventDefault()
+                        onSend()
+                      }
+                    }}
+                    placeholder="输入消息…"
+                    variant="borderless"
+                    autoSize={{ minRows: 1, maxRows: 5 }}
+                    style={{ fontSize: 16, padding: '4px 0', resize: 'none', flex: 1 }}
+                  />
                   <Button
                     type="primary"
                     shape="circle"
@@ -732,20 +745,70 @@ export default function ChatPage() {
                     loading={sending}
                     disabled={!input.trim()}
                     onClick={onSend}
+                    style={{ flexShrink: 0 }}
                   />
-                ) : (
-                  <Button
-                    type="primary"
-                    size="large"
-                    icon={<SendOutlined />}
-                    loading={sending}
-                    onClick={onSend}
-                    className="chat-send-btn"
+                </div>
+              ) : (
+                <>
+                  <Input.TextArea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onPressEnter={(e) => {
+                      if (!e.shiftKey) {
+                        e.preventDefault()
+                        onSend()
+                      }
+                    }}
+                    placeholder="输入消息，Enter 发送，Shift+Enter 换行"
+                    variant="borderless"
+                    autoSize={{ minRows: 2, maxRows: 8 }}
+                    style={{ fontSize: 16, padding: 0, resize: 'none' }}
+                  />
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginTop: 10,
+                    }}
                   >
-                    发送
-                  </Button>
-                )}
-              </div>
+                    <Space size="large">
+                      <Upload accept="image/*" showUploadList={false} beforeUpload={onUploadImage as never}>
+                        <Tooltip title="上传图片">
+                          <Button type="text" icon={<PictureOutlined style={{ fontSize: 19 }} />} />
+                        </Tooltip>
+                      </Upload>
+                      <Upload
+                        accept=".pdf,.docx,.md,.markdown,.txt,.html,.htm"
+                        showUploadList={false}
+                        beforeUpload={onUploadFile as never}
+                      >
+                        <Tooltip title="上传文档（仅本次对话，不进知识库）">
+                          <Button type="text" icon={<PaperClipOutlined style={{ fontSize: 19 }} />} />
+                        </Tooltip>
+                      </Upload>
+                      <Tooltip title="联网搜索">
+                        <Space size={6}>
+                          <GlobalOutlined
+                            style={{ fontSize: 18, color: webSearch ? '#155EEF' : '#98A2B3' }}
+                          />
+                          <Switch size="small" checked={webSearch} onChange={setWebSearch} />
+                        </Space>
+                      </Tooltip>
+                    </Space>
+                    <Button
+                      type="primary"
+                      size="large"
+                      icon={<SendOutlined />}
+                      loading={sending}
+                      onClick={onSend}
+                      className="chat-send-btn"
+                    >
+                      发送
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
             {!isMobile && (
               <div style={{ textAlign: 'center', fontSize: 12, color: '#98A2B3', marginTop: 8 }}>
