@@ -234,8 +234,12 @@ class MemoryGraphRepository:
         self, user_id: str, query: str, top_k: int
     ) -> list[dict[str, Any]]:
         async with self._driver.session() as session:
+            # 注意：Cypher 参数名 $query 与 session.run() 首个位置参数同名，
+            # 不能用 query=... 关键字传，否则 "got multiple values for argument 'query'"。
+            # 改用 parameters 字典传入参数。
             result = await session.run(
-                cq.ENTITY_FULLTEXT_SEARCH, user_id=user_id, query=query, top_k=top_k
+                cq.ENTITY_FULLTEXT_SEARCH,
+                {"user_id": user_id, "query": query, "top_k": top_k},
             )
             return [dict(record) async for record in result]
 

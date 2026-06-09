@@ -263,7 +263,7 @@ export default function ImagePage() {
     <div className="fluid-page">
       <Card title="图片库">
         <Search
-          placeholder="输入关键词检索图片（按 AI 描述/OCR，清空回到浏览）"
+          placeholder="输入关键词检索图片（按 AI 描述与图中文字，清空回到浏览）"
           allowClear
           enterButton="检索"
           loading={searching}
@@ -290,7 +290,7 @@ export default function ImagePage() {
               <p className="ant-upload-hint">
                 {uploading
                   ? '受网络带宽影响可能较慢，请勿关闭页面'
-                  : 'AI 自动生成描述、OCR、物体与场景，可被搜索'}
+                  : 'AI 自动生成描述、物体与场景，可被搜索'}
               </p>
             </Upload.Dragger>
 
@@ -367,12 +367,6 @@ export default function ImagePage() {
               ) : null}
               {detail.objects?.length ? (
                 <p>物体：{detail.objects.map((o) => <Tag key={o}>{o}</Tag>)}</p>
-              ) : null}
-              {detail.ocr_text ? (
-                <>
-                  <p style={{ fontWeight: 600, marginTop: 12 }}>OCR 文字</p>
-                  <p style={{ color: '#475467', whiteSpace: 'pre-wrap' }}>{detail.ocr_text}</p>
-                </>
               ) : null}
             </Col>
           </Row>

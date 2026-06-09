@@ -15,7 +15,6 @@ export interface ImageItem {
   file_size: number
   url: string
   description: string | null
-  ocr_text: string | null
   objects: string[] | null
   scene: string | null
   tags: { name: string; color: string }[]

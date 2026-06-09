@@ -12,7 +12,6 @@ class ImageOut(BaseModel):
     file_size: int
     url: str
     description: str | None
-    ocr_text: str | None
     objects: list | None
     scene: str | None
     status: str

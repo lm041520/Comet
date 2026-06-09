@@ -32,9 +32,14 @@ def guess_mime(file_ext: str) -> str:
 async def describe_image(
     client: LLMClient, content: bytes, file_ext: str
 ) -> dict:
-    """调多模态模型理解图片，返回 {description, ocr_text, objects, scene}。"""
-    image_b64 = base64.b64encode(content).decode()
-    mime = guess_mime(file_ext)
+    """调多模态模型理解图片，返回 {description, ocr_text, objects, scene}。
+
+    大图先压缩（缩放 + 重编码），避免 base64 过大触发多模态接口 400/超限。
+    """
+    from app.core.rag.image_compress import compress_for_vision
+
+    data, mime = compress_for_vision(content, file_ext)
+    image_b64 = base64.b64encode(data).decode()
     answer = await client.vision(_PROMPT, image_b64, mime=mime, max_tokens=1024)
     return _parse(answer)
 

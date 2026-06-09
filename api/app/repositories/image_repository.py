@@ -25,6 +25,14 @@ class ImageRepository:
     async def get_by_id(self, image_id: uuid.UUID) -> Image | None:
         return await self.session.get(Image, image_id)
 
+    async def get_by_file_key(
+        self, user_id: uuid.UUID, file_key: str
+    ) -> Image | None:
+        stmt = select(Image).where(
+            Image.user_id == user_id, Image.file_key == file_key
+        )
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
     async def list_paged(
         self,
         user_id: uuid.UUID,

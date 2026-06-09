@@ -237,6 +237,10 @@ class ChatService:
         # 回答后异步萃取记忆（对话自动萃取，不阻塞用户：仅落库+派发，萃取在 worker）
         await self._dispatch_memory(user_id, user_text)
 
+        # 对话里上传的图片纳入图片库（副作用，失败不影响对话）
+        if body.image_keys:
+            await self._ingest_chat_images(user_id, body.image_keys)
+
         # 回答后异步分析用户情绪（重新生成时跳过，避免对同一句话重复分析）
         if not skip_user_message:
             self._dispatch_emotion(user_id, user_text, conv.id, assistant_msg.id)
@@ -276,7 +280,10 @@ class ChatService:
         user_text: str,
         image_keys: list[str],
     ):
-        """多模态流式：读图转 base64，用多模态模型看图答。逐 token 产出。"""
+        """多模态流式：读图转 base64，用多模态模型看图答。逐 token 产出。
+
+        大图先压缩（缩放 + 重编码），避免 base64 过大触发多模态接口 400/超限。
+        """
         import base64
 
         from langchain_core.messages import HumanMessage, SystemMessage
@@ -291,14 +298,18 @@ class ChatService:
         for key in image_keys[:4]:  # 单轮最多 4 张
             try:
                 raw = await storage.get(key)
-                b64 = base64.b64encode(raw).decode()
-                mime = "image/png" if key.lower().endswith(".png") else "image/jpeg"
+                from pathlib import Path
+
+                from app.core.rag.image_compress import compress_for_vision
+
+                data, mime = compress_for_vision(raw, Path(key).suffix)
+                b64 = base64.b64encode(data).decode()
                 content_parts.append({
                     "type": "image_url",
                     "image_url": {"url": f"data:{mime};base64,{b64}"},
                 })
             except Exception as e:
-                logger.warning("读取对话图片失败（跳过）: %s", e)
+                logger.warning("读取/压缩对话图片失败（跳过）: %s", e)
 
         messages: list = []
         if system_prompt:
@@ -326,6 +337,25 @@ class ChatService:
             extract_memory_task.delay(str(memory.id))
         except Exception as e:
             logger.warning("对话记忆萃取派发失败（忽略）: %s", e)
+
+    async def _ingest_chat_images(
+        self, user_id: uuid.UUID, image_keys: list[str]
+    ) -> None:
+        """把对话里上传的图片纳入图片库（建 Image 记录 + 派发处理）。
+
+        按 file_key 去重，失败不影响对话。
+        """
+        try:
+            from app.services.image_service import ImageService
+
+            service = ImageService(self.session)
+            for key in image_keys:
+                try:
+                    await service.ingest_from_chat(user_id, key)
+                except Exception as e:
+                    logger.warning("对话图片入库失败（跳过 %s）: %s", key, e)
+        except Exception as e:
+            logger.warning("对话图片入库整体失败（忽略）: %s", e)
 
     def _dispatch_emotion(
         self,
