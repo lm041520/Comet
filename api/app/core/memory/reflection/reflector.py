@@ -54,7 +54,7 @@ class ReflectionEngine:
         )
         try:
             answer = await self.chat_client.chat(
-                [{"role": "user", "content": prompt}], temperature=0.5, max_tokens=1200
+                [{"role": "user", "content": prompt}], temperature=0.5, max_tokens=2048
             )
         except Exception as e:
             logger.warning("反思 LLM 调用失败: user=%s err=%s", user_id, e)
@@ -86,6 +86,9 @@ class ReflectionEngine:
             content = str(it.get("content", "")).strip()
             if not theme or not content:
                 continue
+            # 安全兜底：洞察应是一句概括，超长则截断，避免异常长文/截断残句入库
+            if len(content) > 200:
+                content = content[:200].rstrip() + "…"
             embedding = None
             if embeddings and emb_idx < len(embeddings):
                 embedding = embeddings[emb_idx]
