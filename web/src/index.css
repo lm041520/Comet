@@ -3020,10 +3020,20 @@ body {
 .skill-card-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 4px;
   margin-top: 10px;
   border-top: 1px solid #f3f4f6;
   padding-top: 8px;
+}
+.skill-card-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.skill-card-toggle-label {
+  font-size: 12px;
+  color: #98a2b3;
 }
 
 /* 技能编辑弹窗字段 */

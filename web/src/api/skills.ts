@@ -24,6 +24,7 @@ export interface Skill {
   prompt: string
   tool_keys: string[]
   kb_id: string | null
+  enabled: boolean
   config: SkillConfig
   is_builtin: boolean
 }
@@ -35,6 +36,7 @@ export interface SkillInput {
   prompt?: string
   tool_keys?: string[]
   kb_id?: string | null
+  enabled?: boolean
   config?: SkillConfig
 }
 

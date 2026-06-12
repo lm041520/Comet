@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Dropdown, Empty, Popconfirm, Spin, Tag, message } from 'antd'
+import { Button, Dropdown, Empty, Popconfirm, Spin, Switch, Tag, Tooltip, message } from 'antd'
 import {
   DeleteOutlined,
   EditOutlined,
@@ -41,6 +41,14 @@ export default function SkillPage() {
     try {
       await skillApi.remove(s.id)
       message.success('已删除')
+      refresh()
+    } catch (e) {
+      message.error((e as Error).message)
+    }
+  }
+  const onToggleEnabled = async (s: Skill, enabled: boolean) => {
+    try {
+      await skillApi.update(s.id, { enabled })
       refresh()
     } catch (e) {
       message.error((e as Error).message)
@@ -126,6 +134,17 @@ export default function SkillPage() {
                 )}
               </div>
               <div className="skill-card-actions">
+                <Tooltip title="开启后在对话框技能选择器中显示">
+                  <span className="skill-card-toggle">
+                    <Switch
+                      size="small"
+                      checked={s.enabled}
+                      onChange={(v) => onToggleEnabled(s, v)}
+                    />
+                    <span className="skill-card-toggle-label">对话显示</span>
+                  </span>
+                </Tooltip>
+                <span style={{ flex: 1 }} />
                 <Button
                   type="text"
                   size="small"

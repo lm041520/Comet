@@ -69,6 +69,7 @@ class SkillService:
             prompt=body.prompt or "",
             tool_keys=body.tool_keys or [],
             kb_id=kb_uuid,
+            enabled=body.enabled,
             config=body.config.model_dump(),
         )
         created = await self.repo.add(skill)
@@ -92,6 +93,8 @@ class SkillService:
             skill.tool_keys = fields["tool_keys"]
         if "kb_id" in fields:
             skill.kb_id = await self._validate_kb(user_id, fields["kb_id"])
+        if "enabled" in fields and fields["enabled"] is not None:
+            skill.enabled = fields["enabled"]
         if "config" in fields and fields["config"] is not None:
             # body.config 已是 SkillConfig；model_dump 后是 dict
             cfg = body.config
@@ -190,6 +193,7 @@ class SkillService:
             "prompt": skill.prompt,
             "tool_keys": skill.tool_keys or [],
             "kb_id": str(skill.kb_id) if skill.kb_id else None,
+            "enabled": skill.enabled,
             "config": skill.config or {},
             "is_builtin": skill.is_builtin,
         }

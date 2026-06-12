@@ -32,6 +32,7 @@ export default function SkillEditModal({ open, skill, onClose, onSaved }: Props)
   const [toolKeys, setToolKeys] = useState<string[]>([])
   const [kbId, setKbId] = useState<string | null>(null)
   const [quickPrompts, setQuickPrompts] = useState<string[]>([])
+  const [enabled, setEnabled] = useState(true)
   const [saving, setSaving] = useState(false)
   const [optimizing, setOptimizing] = useState(false)
   const [tools, setTools] = useState<ToolItem[]>([])
@@ -48,6 +49,7 @@ export default function SkillEditModal({ open, skill, onClose, onSaved }: Props)
       setToolKeys(skill?.tool_keys ?? [])
       setKbId(skill?.kb_id ?? null)
       setQuickPrompts(skill?.config?.quick_prompts ?? [])
+      setEnabled(skill?.enabled ?? true)
       ensureKbLoaded()
       // 工具列表（白名单候选）：只取内置工具
       toolsApi
@@ -95,6 +97,7 @@ export default function SkillEditModal({ open, skill, onClose, onSaved }: Props)
       prompt,
       tool_keys: toolKeys,
       kb_id: kbId ?? '',
+      enabled,
       config: {
         quick_prompts: quickPrompts.map((p) => p.trim()).filter(Boolean),
         few_shots: skill?.config?.few_shots ?? [],

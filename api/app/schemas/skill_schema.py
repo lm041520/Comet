@@ -25,6 +25,7 @@ class SkillCreate(BaseModel):
     prompt: str = Field(default="", max_length=8000)
     tool_keys: list[str] = Field(default_factory=list)
     kb_id: str | None = Field(default=None)
+    enabled: bool = Field(default=True)
     config: SkillConfig = Field(default_factory=SkillConfig)
 
 
@@ -37,6 +38,7 @@ class SkillUpdate(BaseModel):
     prompt: str | None = Field(default=None, max_length=8000)
     tool_keys: list[str] | None = Field(default=None)
     kb_id: str | None = Field(default=None)
+    enabled: bool | None = Field(default=None)
     config: SkillConfig | None = Field(default=None)
 
 
@@ -50,6 +52,7 @@ class SkillOut(BaseModel):
     prompt: str
     tool_keys: list[str]
     kb_id: str | None
+    enabled: bool
     config: dict
     is_builtin: bool
 

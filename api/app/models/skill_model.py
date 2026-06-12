@@ -58,6 +58,8 @@ class Skill(Base):
     )
     # 轻量配置：{ quick_prompts: [str], few_shots: [{input, output}] }
     config: Mapped[dict] = mapped_column(JSONB, default=dict)
+    # 是否在对话页技能选择器中显示（关闭则不占用对话框入口，避免技能多时拥挤）
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     # 是否由内置模板复制而来（标记用途，用户仍可改删）
     is_builtin: Mapped[bool] = mapped_column(Boolean, default=False)
     # 列表排序

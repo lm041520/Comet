@@ -86,6 +86,8 @@ export default function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const activeSkill = skills.find((s) => s.id === activeSkillId) ?? null
+  // 只在对话框技能选择器展示「已开启显示」的技能，避免技能多时拥挤
+  const visibleSkills = skills.filter((s) => s.enabled)
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 768px)')
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
@@ -789,12 +791,12 @@ export default function ChatPage() {
                     >
                       <span>🚫 不挂载技能</span>
                     </div>
-                    {skills.length === 0 && (
+                    {visibleSkills.length === 0 && (
                       <div className="chat-skill-empty">
-                        还没有技能，去「技能」页创建
+                        还没有可用技能，去「技能」页创建或开启显示
                       </div>
                     )}
-                    {skills.map((s) => (
+                    {visibleSkills.map((s) => (
                       <div
                         key={s.id}
                         className={`chat-skill-opt${
