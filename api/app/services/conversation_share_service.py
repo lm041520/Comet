@@ -90,17 +90,45 @@ class ConversationShareService:
             return raw, "image/png"
 
     async def _build_snapshot(self, conv_id: uuid.UUID) -> list[dict]:
-        """把会话消息脱敏冻结成快照：仅保留 user/assistant 的文本。"""
+        """把会话消息脱敏冻结成快照：保留 user/assistant 的文本。
+
+        群聊消息额外带发言人名字 sender_name + 发言人头像 data URL sender_avatar，
+        供公开页按发言人区分展示（微信群效果）。
+        """
         msgs = await self.msg_repo.list_by_conversation(conv_id)
         snapshot: list[dict] = []
+        avatar_cache: dict[str, str | None] = {}  # persona_id -> data URL
         for m in msgs:
             if m.role not in (ROLE_USER, ROLE_ASSISTANT):
                 continue
             content = (m.content or "").strip()
             if not content:
                 continue
-            snapshot.append({"role": m.role, "content": content})
+            item: dict = {"role": m.role, "content": content}
+            # 群聊发言人信息（单聊消息无 sender_persona_id，不受影响）
+            if m.role == ROLE_ASSISTANT and m.sender_persona_id:
+                sender_name = (m.meta_data or {}).get("sender_name") if m.meta_data else None
+                item["sender_name"] = sender_name
+                key = str(m.sender_persona_id)
+                if key not in avatar_cache:
+                    avatar_cache[key] = await self._persona_avatar_data_url(
+                        m.sender_persona_id
+                    )
+                item["sender_avatar"] = avatar_cache[key]
+            snapshot.append(item)
         return snapshot
+
+    async def _persona_avatar_data_url(self, persona_id: uuid.UUID) -> str | None:
+        """按角色卡 id 取头像 data URL（群聊快照用）。失败返回 None。"""
+        try:
+            from app.models.agent_persona_model import AgentPersona
+
+            persona = await self.session.get(AgentPersona, persona_id)
+            if persona and persona.avatar_key:
+                return await self._avatar_data_url(persona.avatar_key)
+        except Exception as e:
+            logger.warning("群成员头像 data URL 失败（忽略）: %s", e)
+        return None
 
     async def create_share(
         self,

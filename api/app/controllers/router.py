@@ -16,6 +16,7 @@ from app.controllers import (
     emotion_controller,
     favorite_controller,
     file_controller,
+    group_chat_controller,
     health_controller,
     image_controller,
     knowledge_base_controller,
@@ -40,6 +41,7 @@ api_router.include_router(tag_controller.router)
 api_router.include_router(file_controller.router)
 api_router.include_router(memory_controller.router)
 api_router.include_router(chat_controller.router)
+api_router.include_router(group_chat_controller.router)
 api_router.include_router(agent_config_controller.router)
 api_router.include_router(agent_persona_controller.router)
 api_router.include_router(mcp_controller.router)

@@ -61,6 +61,9 @@ export default function SharePage() {
         <div className="share-body">
           {data.messages.map((m, i) => {
             const isUser = m.role === 'user'
+            // 群聊：每条 AI 消息带自己的发言人头像/名字
+            const aiAvatar = m.sender_avatar || data.ai_avatar
+            const aiName = m.sender_name || data.ai_name
             return (
               <div
                 key={i}
@@ -72,17 +75,20 @@ export default function SharePage() {
                   ) : (
                     <div className="share-avatar share-avatar-user">我</div>
                   )
-                ) : data.ai_avatar ? (
-                  <img src={data.ai_avatar} alt="AI" className="share-avatar share-avatar-ai" />
+                ) : aiAvatar ? (
+                  <img src={aiAvatar} alt={aiName || 'AI'} className="share-avatar share-avatar-ai" />
                 ) : (
                   <img src={logo} alt="AI" className="share-avatar share-avatar-ai" />
                 )}
-                <div className="share-bubble">
-                  {isUser ? (
-                    <span style={{ whiteSpace: 'pre-wrap' }}>{m.content}</span>
-                  ) : (
-                    <MarkdownMessage content={m.content} />
-                  )}
+                <div className="share-bubble-wrap">
+                  {!isUser && aiName && <div className="share-sender">{aiName}</div>}
+                  <div className="share-bubble">
+                    {isUser ? (
+                      <span style={{ whiteSpace: 'pre-wrap' }}>{m.content}</span>
+                    ) : (
+                      <MarkdownMessage content={m.content} />
+                    )}
+                  </div>
                 </div>
               </div>
             )

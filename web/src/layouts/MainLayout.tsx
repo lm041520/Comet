@@ -17,6 +17,7 @@ import {
   SettingOutlined,
   ShareAltOutlined,
   StarOutlined,
+  TeamOutlined,
   ThunderboltOutlined,
   ToolOutlined,
   UserOutlined,
@@ -39,6 +40,7 @@ const menuItems = [
     children: [
       { key: '/', icon: <AppstoreOutlined />, label: '仪表盘' },
       { key: '/chat', icon: <CommentOutlined />, label: '对话' },
+      { key: '/group-chat', icon: <TeamOutlined />, label: '群聊' },
     ],
   },
   {

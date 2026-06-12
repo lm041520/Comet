@@ -21,6 +21,8 @@ export interface SharePublicMessage {
   role: string
   content: string
   images?: string[]
+  sender_name?: string | null
+  sender_avatar?: string | null
 }
 
 export interface SharePublic {

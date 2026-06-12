@@ -10,6 +10,7 @@ import MemoryPage from './pages/MemoryPage'
 import GraphPage from './pages/GraphPage'
 import MusicLibraryPage from './pages/MusicLibraryPage'
 import ChatPage from './pages/ChatPage'
+import GroupChatPage from './pages/GroupChatPage'
 import AgentConfigPage from './pages/AgentConfigPage'
 import SkillPage from './pages/SkillPage'
 import ToolConfigPage from './pages/ToolConfigPage'
@@ -36,6 +37,7 @@ export default function App() {
         >
           <Route index element={<HomePage />} />
           <Route path="chat" element={<ChatPage />} />
+          <Route path="group-chat" element={<GroupChatPage />} />
           <Route path="knowledge" element={<KnowledgeBasePage />} />
           <Route path="knowledge-bases/:kbId" element={<KnowledgeDetailPage />} />
           <Route path="images" element={<ImagePage />} />

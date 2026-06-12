@@ -307,6 +307,14 @@ class ChatService:
             tools = await self._build_tools(
                 user_id, agent, body, citations, stats_holder, skill=skill
             )
+            # 注入当前日期 + 时效性引导：让模型知道"今天"是哪天，对实时问题主动联网
+            from app.core.agent.context_hint import current_context_block
+
+            system_prompt = (
+                system_prompt
+                + "\n\n"
+                + current_context_block(with_tool_hint=bool(tools))
+            ).strip()
             history = await self._history_messages(conv.id)
             # 主动记忆召回：每轮用当前问题检索相关记忆 + 洞察，注入 system prompt（开关控制）
             if agent is None or agent.enable_active_recall:
