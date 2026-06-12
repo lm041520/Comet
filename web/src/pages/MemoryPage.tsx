@@ -398,11 +398,12 @@ function InsightsBanner() {
     <div className="insight-banner">
       <div className="insight-banner-head">
         <Space size={8}>
-          <BulbOutlined style={{ color: '#fff', fontSize: 18 }} />
+          <BulbOutlined style={{ color: '#155EEF', fontSize: 18 }} />
           <span className="insight-banner-title">AI 眼中的你</span>
         </Space>
         <Button
           size="small"
+          type="primary"
           ghost
           icon={<ThunderboltOutlined />}
           loading={reflecting}

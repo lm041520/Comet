@@ -3199,41 +3199,57 @@ body {
   }
 }
 
-/* ── 记忆页：AI 对你的洞察 ── */
+/* ── 记忆页：AI 眼中的你 ── */
 .insight-banner {
-  border-radius: 14px;
-  padding: 16px 18px;
-  background: linear-gradient(120deg, #6366f1 0%, #8b5cf6 100%);
-  box-shadow: 0 14px 32px -16px rgba(99, 102, 241, 0.6);
+  position: relative;
+  border-radius: 16px;
+  padding: 18px 20px 20px;
+  overflow: hidden;
+  background: #f6f8fc;
+  border: 1px solid #e9eef6;
 }
 .insight-banner-head {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 .insight-banner-title {
-  color: #fff;
+  color: #1d2939;
   font-size: 16px;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 .insight-banner-empty {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 13px;
-  line-height: 1.7;
+  position: relative;
+  color: #667085;
+  font-size: 13.5px;
+  line-height: 1.8;
+  background: #fff;
+  border: 1px solid #eceef2;
+  border-radius: 12px;
+  padding: 16px 18px;
 }
 .insight-grid {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 12px;
 }
 .insight-item {
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
-  padding: 12px 14px;
-  backdrop-filter: blur(6px);
+  position: relative;
+  background: #fff;
+  border: 1px solid #eceef2;
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 8px -4px rgba(16, 24, 40, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.insight-item:hover {
+  transform: translateY(-2px);
+  border-color: #d4def0;
+  box-shadow: 0 10px 24px -12px rgba(21, 94, 239, 0.28);
 }
 .insight-item-head {
   display: flex;
@@ -3242,22 +3258,26 @@ body {
   margin-bottom: 8px;
 }
 .insight-del {
-  color: rgba(255, 255, 255, 0.6);
+  color: #c7c9d1;
   cursor: pointer;
   font-size: 13px;
+  transition: color 0.15s ease;
 }
 .insight-del:hover {
-  color: #fff;
+  color: #ff5d34;
 }
 .insight-content {
-  color: #fff;
-  font-size: 13.5px;
-  line-height: 1.65;
+  color: #344054;
+  font-size: 14px;
+  line-height: 1.7;
 }
 
 @media (max-width: 768px) {
   .insight-grid {
     grid-template-columns: 1fr;
+  }
+  .insight-banner {
+    padding: 14px 14px 16px;
   }
 }
 
