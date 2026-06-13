@@ -3391,19 +3391,27 @@ body {
 
 /* 手机端：写死 width 的弹窗（如 680px 的编辑弹窗）限宽，避免横向溢出 */
 @media (max-width: 768px) {
-  /* 用 flex 让弹窗在视口内真正居中，避免 margin:auto 在滚动容器里失效导致左溢出 */
+  /* 移动端弹窗居中：不用 display:flex（会覆盖 AntD 关闭时的 display:none 导致遮罩残留）
+     改用 text-align 居中 + inline-block 的经典方式 */
   .ant-modal-wrap {
-    display: flex !important;
-    align-items: flex-start !important;
-    justify-content: center !important;
+    text-align: center !important;
     padding: 12px !important;
   }
+  .ant-modal-wrap::before {
+    content: "";
+    display: inline-block;
+    height: 0;
+    vertical-align: top;
+  }
   .ant-modal {
+    display: inline-block !important;
+    text-align: left !important;
     max-width: 100% !important;
-    width: 100% !important;
-    margin: 0 !important;
+    width: calc(100% - 24px) !important;
+    margin: 0 auto !important;
     top: 0 !important;
     padding-bottom: 0 !important;
+    vertical-align: top !important;
   }
   .ant-modal-content {
     padding: 16px !important;
