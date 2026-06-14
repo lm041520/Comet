@@ -23,6 +23,8 @@ export interface SharePublicMessage {
   images?: string[]
   sender_name?: string | null
   sender_avatar?: string | null
+  is_human?: boolean
+  is_me?: boolean
 }
 
 export interface SharePublic {

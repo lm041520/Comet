@@ -65,8 +65,8 @@ logger = get_logger(__name__)
 # 群成员数量约束
 MIN_MEMBERS = 2
 MAX_MEMBERS = 5
-# 群聊历史窗口（取最近多少条消息构 transcript）
-HISTORY_LIMIT = 40
+# 群聊历史窗口（取最近多少条消息构 transcript；越短首字越快、越省 token）
+HISTORY_LIMIT = 24
 
 # 后台 AI 回合任务引用集合（防止 create_task 的任务被 GC 提前回收）
 _BG_TASKS: set = set()

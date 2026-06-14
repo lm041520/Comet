@@ -19,8 +19,8 @@ from app.core.memory.json_utils import parse_json_object
 
 logger = get_logger(__name__)
 
-# transcript 截断：最近多少条消息参与上下文
-MAX_TRANSCRIPT_MESSAGES = 30
+# transcript 截断：最近多少条消息参与上下文（越短首字越快、越省 token）
+MAX_TRANSCRIPT_MESSAGES = 18
 # 单个角色人设简介（喂主持人用）截断长度
 BRIEF_MAX_CHARS = 80
 # 主持人最多看的近期消息条数

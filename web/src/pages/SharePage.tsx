@@ -61,30 +61,35 @@ export default function SharePage() {
         <div className="share-body">
           {data.messages.map((m, i) => {
             const isUser = m.role === 'user'
-            // 群聊：每条 AI 消息带自己的发言人头像/名字；单聊 fallback 到全局 ai_avatar
-            const isGroupMsg = !!m.sender_name
-            const aiAvatar = isGroupMsg ? m.sender_avatar : (m.sender_avatar || data.ai_avatar)
-            const aiName = m.sender_name || data.ai_name
+            // 右侧「我」：单聊 user（无名） 或 群聊里分享者本人的发言；其他真人靠左具名
+            const onRight = isUser && (!m.sender_name || !!m.is_me)
+            const leftName = m.sender_name || data.ai_name
+            // 左侧头像：真人用真人头像；AI 角色群聊用自己头像、单聊回退全局 ai_avatar
+            const leftAvatar = isUser
+              ? m.sender_avatar
+              : m.sender_name
+                ? m.sender_avatar
+                : m.sender_avatar || data.ai_avatar
             return (
               <div
                 key={i}
-                className={`share-msg ${isUser ? 'share-msg-user' : 'share-msg-ai'}`}
+                className={`share-msg ${onRight ? 'share-msg-user' : 'share-msg-ai'}`}
               >
-                {isUser ? (
+                {onRight ? (
                   data.user_avatar ? (
                     <img src={data.user_avatar} alt="我" className="share-avatar share-avatar-ai" />
                   ) : (
                     <div className="share-avatar share-avatar-user">我</div>
                   )
-                ) : aiAvatar ? (
-                  <img src={aiAvatar} alt={aiName || 'AI'} className="share-avatar share-avatar-ai" />
-                ) : aiName ? (
-                  <div className="share-avatar share-avatar-user">{aiName.slice(0, 1)}</div>
+                ) : leftAvatar ? (
+                  <img src={leftAvatar} alt={leftName || 'AI'} className="share-avatar share-avatar-ai" />
+                ) : leftName ? (
+                  <div className="share-avatar share-avatar-user">{leftName.slice(0, 1)}</div>
                 ) : (
                   <img src={logo} alt="AI" className="share-avatar share-avatar-ai" />
                 )}
                 <div className="share-bubble-wrap">
-                  {!isUser && aiName && <div className="share-sender">{aiName}</div>}
+                  {!onRight && leftName && <div className="share-sender">{leftName}</div>}
                   <div className="share-bubble">
                     {m.images && m.images.length > 0 && (
                       <div className="share-images">
