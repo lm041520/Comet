@@ -34,3 +34,9 @@ class GroupJoinRequest(BaseModel):
     code: str = Field(..., min_length=1, max_length=16)
     nickname: str | None = Field(default=None, max_length=64)
 
+
+class GroupToolsRequest(BaseModel):
+    """群主开/关本群工具（知识库/记忆/联网/MCP）。"""
+
+    enabled: bool
+

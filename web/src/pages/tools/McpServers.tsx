@@ -215,6 +215,7 @@ export default function McpServers() {
 
   return (
     <Card
+      className="mcp-servers-card"
       title={
         <Space>
           <ApiOutlined />

@@ -186,6 +186,54 @@ class GroupChatService:
             )
         return members
 
+    async def avatar_members(self, conv: Conversation) -> list[dict]:
+        """群头像宫格用的成员列表：真人成员（群主+加入者）+ AI 角色卡，最多取 4 个。
+
+        真人在前（群主优先）、AI 在后，仿微信群头像把真实参与者也拼进去。
+        真人头像走鉴权接口 /api/groups/{id}/members/{uid}/avatar；AI 走 /api/files。
+        """
+        from app.models.user_model import User
+
+        out: list[dict] = []
+        # 真人成员（群主排第一）
+        try:
+            humans = await self.member_repo.list_by_conversation(conv.id)
+            humans_sorted = sorted(humans, key=lambda m: 0 if m.role == "owner" else 1)
+            for m in humans_sorted:
+                u = await self.session.get(User, m.user_id)
+                has_avatar = bool(u and u.avatar)
+                name = (m.nickname or "").strip() or await self._default_nickname(
+                    m.user_id
+                )
+                out.append({
+                    "name": name,
+                    "avatar_url": (
+                        f"/api/groups/{conv.id}/members/{m.user_id}/avatar"
+                        if has_avatar
+                        else None
+                    ),
+                })
+        except Exception as e:
+            logger.warning("群头像真人成员加载失败（忽略）: %s", e)
+        # AI 角色卡
+        for pid in conv.member_persona_ids or []:
+            try:
+                persona = await self.persona_repo.get(
+                    conv.user_id, uuid.UUID(str(pid))
+                )
+            except (ValueError, TypeError):
+                persona = None
+            if persona is None:
+                continue
+            avatar_url = None
+            if persona.avatar_key:
+                try:
+                    avatar_url = get_storage().get_url(persona.avatar_key)
+                except Exception as e:
+                    logger.warning("群头像角色卡头像 url 失败: %s", e)
+            out.append({"name": persona.name, "avatar_url": avatar_url})
+        return out[:4]
+
     async def _history_for_transcript(self, conv_id: uuid.UUID) -> list[dict]:
         """取群聊历史并附上每条的发言人名字（供 transcript 渲染）。
 
@@ -277,6 +325,21 @@ class GroupChatService:
             conv.join_code = self._gen_join_code()
             await self.conv_repo.save(conv)
         return conv.join_code
+
+    async def set_tools(
+        self, user_id: uuid.UUID, conv_id: uuid.UUID, enabled: bool
+    ) -> bool:
+        """群主开/关本群的工具（知识库/记忆/联网/MCP）。返回最新状态。
+
+        仅群主可改（AI 用群主算力、工具走群主配置）；get_group_or_404 已限定为本人会话。
+        """
+        conv = await self.get_group_or_404(user_id, conv_id)
+        conv.enable_tools = bool(enabled)
+        await self.conv_repo.save(conv)
+        logger.info(
+            "群聊工具开关: conv=%s enabled=%s by=%s", conv_id, enabled, user_id
+        )
+        return conv.enable_tools
 
     async def reset_join_code(self, user_id: uuid.UUID, conv_id: uuid.UUID) -> str:
         """群主重置邀请码（旧码失效）。"""

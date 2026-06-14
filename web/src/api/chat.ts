@@ -227,6 +227,12 @@ export const groupApi = {
       `/groups/${convId}/invite/reset`,
     )
   },
+  setTools(convId: string, enabled: boolean) {
+    return client.patch<unknown, Wrapped<{ enable_tools: boolean }>>(
+      `/groups/${convId}/tools`,
+      { enabled },
+    )
+  },
   join(code: string, nickname?: string) {
     return client.post<unknown, Wrapped<Conversation>>('/groups/join', {
       code,
@@ -249,6 +255,8 @@ export const groupApi = {
 
 export interface GroupConversation extends Conversation {
   is_owner?: boolean
+  // 群头像宫格成员（真人 + AI 角色卡，最多 4 个），来自后端组合
+  avatar_members?: { name: string; avatar_url?: string | null }[]
 }
 
 export interface GroupHuman {

@@ -31,6 +31,7 @@ import {
   SendOutlined,
   ShareAltOutlined,
   TeamOutlined,
+  ToolOutlined,
   UsergroupAddOutlined,
   UserOutlined,
 } from '@ant-design/icons'
@@ -684,6 +685,23 @@ export default function GroupChatPage() {
 
   const activeConv = conversations.find((c) => c.id === activeId)
 
+  // 群主开/关本群工具（知识库/记忆/联网/MCP）。即时生效，下一轮 AI 发言按新值走。
+  const handleToggleTools = async () => {
+    if (!activeId || !activeConv) return
+    const next = !activeConv.enable_tools
+    try {
+      await groupApi.setTools(activeId, next)
+      setConversations((prev) =>
+        prev.map((c) => (c.id === activeId ? { ...c, enable_tools: next } : c)),
+      )
+      antdMessage.success(
+        next ? '已开启工具：角色可查知识库/记忆/联网/MCP' : '已关闭工具',
+      )
+    } catch (e) {
+      antdMessage.error((e as Error).message)
+    }
+  }
+
   // 手机端：把群聊操作注册到全局顶栏（替代搜索框），并隐藏群聊自己的标题栏，合并成一条
   useEffect(() => {
     if (!isMobile || !activeId || !activeConv) {
@@ -693,6 +711,14 @@ export default function GroupChatPage() {
     const isOwner = !!activeConv.is_owner
     const items: MenuProps['items'] = isOwner
       ? [
+          {
+            key: 'tools',
+            icon: <ToolOutlined />,
+            label: activeConv.enable_tools
+              ? '🛠 工具：已开启（点击关闭）'
+              : '🛠 工具：已关闭（点击开启）',
+            onClick: () => handleToggleTools(),
+          },
           {
             key: 'new',
             icon: <FormOutlined />,
@@ -726,7 +752,7 @@ export default function GroupChatPage() {
     })
     return () => useGroupHeaderStore.getState().clear()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMobile, activeId, activeConv?.is_owner, activeConv?.title])
+  }, [isMobile, activeId, activeConv?.is_owner, activeConv?.title, activeConv?.enable_tools])
 
   // 退出群聊（非群主）
   const handleLeave = () => {
@@ -791,7 +817,7 @@ export default function GroupChatPage() {
               onClick={() => openConversation(c.id)}
             >
               <div className="gc-conv-icon">
-                <GroupAvatar members={membersForConv(c)} size={40} />
+                <GroupAvatar members={c.avatar_members ?? membersForConv(c)} size={40} />
               </div>
               <span className="gc-conv-title">{c.title}</span>
               {c.is_owner === false && (
@@ -849,7 +875,10 @@ export default function GroupChatPage() {
           {activeId ? (
             <div className="gc-header-info">
               <div className="gc-header-title-row">
-                <GroupAvatar members={members} size={32} />
+                <GroupAvatar
+                  members={activeConv?.avatar_members ?? members}
+                  size={32}
+                />
                 <span className="gc-header-title">{activeConv?.title || '群聊'}</span>
                 {humans.length > 1 && (
                   <Tag bordered={false} color="green" className="gc-online-tag">
@@ -923,6 +952,14 @@ export default function GroupChatPage() {
                   items: [
                     ...(activeConv?.is_owner
                       ? [
+                          {
+                            key: 'tools',
+                            icon: <ToolOutlined />,
+                            label: activeConv.enable_tools
+                              ? '🛠 工具：已开启（点击关闭）'
+                              : '🛠 工具：已关闭（点击开启）',
+                            onClick: handleToggleTools,
+                          },
                           {
                             key: 'clear',
                             icon: <DeleteOutlined />,

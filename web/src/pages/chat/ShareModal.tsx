@@ -83,23 +83,22 @@ export default function ShareModal({ open, conversationId, onClose }: Props) {
       </p>
 
       {!share ? (
-        <Space direction="vertical" style={{ width: '100%', marginTop: 8 }}>
+        <Space direction="vertical" size={14} style={{ width: '100%', marginTop: 8 }}>
           <div>
-            <span style={{ fontSize: 13, color: '#344054' }}>分享标题</span>
+            <div className="share-field-label">分享标题</div>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="留空则用会话标题"
               maxLength={256}
-              style={{ marginTop: 6 }}
             />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 13, color: '#344054' }}>有效期</span>
+          <div>
+            <div className="share-field-label">有效期</div>
             <Select
               value={expireDays}
               onChange={setExpireDays}
-              style={{ width: 160 }}
+              style={{ width: '100%' }}
               options={[
                 { value: null, label: '永久有效' },
                 { value: 7, label: '7 天后过期' },

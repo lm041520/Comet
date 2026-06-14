@@ -18,6 +18,7 @@ from app.schemas.group_chat_schema import (
     GroupCreateRequest,
     GroupJoinRequest,
     GroupSayRequest,
+    GroupToolsRequest,
 )
 from app.services.conversation_service import ConversationService
 from app.services.group_chat_service import GroupChatService
@@ -105,6 +106,7 @@ async def list_my_groups(
     for c in convs:
         d = ConversationService(session).to_out_dict(c)
         d["is_owner"] = c.user_id == user.id
+        d["avatar_members"] = await service.avatar_members(c)
         out.append(d)
     return success(out)
 
@@ -131,6 +133,19 @@ async def reset_group_invite(
     service = GroupChatService(session)
     code = await service.reset_join_code(user.id, conv_id)
     return success({"join_code": code}, "邀请码已重置")
+
+
+@router.patch("/groups/{conv_id}/tools")
+async def set_group_tools(
+    conv_id: uuid.UUID,
+    body: GroupToolsRequest,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """群主开/关本群工具（知识库/记忆/联网/MCP）。下一轮 AI 发言即按新值生效。"""
+    service = GroupChatService(session)
+    enabled = await service.set_tools(user.id, conv_id, body.enabled)
+    return success({"enable_tools": enabled}, "已更新")
 
 
 @router.post("/groups/join")

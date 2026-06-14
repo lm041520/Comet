@@ -4866,3 +4866,69 @@ body {
     font-size: 25px;
   }
 }
+
+/* 手机端：MCP 服务卡片操作区改成等分网格，去掉 antd 分隔点，按钮撑满更整齐 */
+@media (max-width: 768px) {
+  .mcp-servers-card .ant-list-item {
+    padding: 14px 0;
+  }
+  .mcp-servers-card .ant-list-item-action {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+    margin-top: 12px;
+    margin-inline-start: 0;
+  }
+  .mcp-servers-card .ant-list-item-action > li {
+    padding: 0;
+    width: 100%;
+    text-align: center;
+  }
+  .mcp-servers-card .ant-list-item-action > li .ant-btn {
+    width: 100%;
+  }
+  /* 去掉 action 之间的竖线分隔符 */
+  .mcp-servers-card .ant-list-item-action-split {
+    display: none;
+  }
+  /* 「启用/停用」开关单独占一格，垂直居中靠左 */
+  .mcp-servers-card .ant-list-item-action > li:last-child {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  /* 服务地址等长文本换行，避免横向溢出 */
+  .mcp-servers-card .ant-list-item-meta-description {
+    word-break: break-all;
+  }
+}
+
+/* 分享对话弹窗：表单字段标签（标题/有效期统一样式） */
+.share-field-label {
+  font-size: 13px;
+  color: #344054;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+/* 手机端：分享弹窗触控与排版优化 */
+@media (max-width: 768px) {
+  /* 「我的分享」列表更高一点，单屏能多看几条 */
+  .share-list {
+    max-height: 46vh;
+  }
+  /* 列表项内边距加大，复制/删除按钮做成更大的触控目标 */
+  .share-list-item {
+    padding: 12px;
+  }
+  .share-list-item .ant-btn {
+    width: 36px;
+    height: 36px;
+  }
+  /* 标题/有效期输入控件加高，手机更好点 */
+  .ant-modal .share-field-label + .ant-input,
+  .ant-modal .share-field-label + .ant-select .ant-select-selector {
+    min-height: 40px;
+  }
+}
