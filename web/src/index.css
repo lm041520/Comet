@@ -3722,16 +3722,63 @@ body {
   background: #eef4ff;
 }
 .gc-conv-icon {
-  width: 30px;
-  height: 30px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+/* 群头像宫格合成（仿微信群） */
+.gc-group-avatar {
   border-radius: 8px;
+  overflow: hidden;
+  display: grid;
+  gap: 1px;
+  background: #e4e7ec;
+  flex-shrink: 0;
+}
+.gc-group-avatar--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: linear-gradient(135deg, #155eef, #4f86f7);
   color: #fff;
-  font-size: 14px;
+}
+.gc-group-avatar--2 {
+  grid-template-columns: 1fr 1fr;
+}
+.gc-group-avatar--3 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+/* 3 人：第一个居中放在上方，保持正方形不拉伸 */
+.gc-group-avatar--3 .gc-group-avatar-cell:first-child {
+  grid-column: 1 / 3;
+  grid-row: 1;
+  justify-self: center;
+  width: 50%;
+}
+.gc-group-avatar--4 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+.gc-group-avatar-cell {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+}
+.gc-group-avatar-letter {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
 }
 .gc-conv--active .gc-conv-title {
   color: #155eef;
@@ -3782,22 +3829,45 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 .gc-header-title {
   font-size: 16px;
   font-weight: 700;
   color: #1d2939;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .gc-member-count {
   background: #eef4ff;
   color: #155eef;
   font-size: 12px;
   border-radius: 6px;
+  flex-shrink: 0;
+}
+.gc-header-actions {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.gc-mobile-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
 }
 .gc-share-btn {
   margin-left: auto;
   flex-shrink: 0;
   color: #475467;
+}
+.gc-header-actions .gc-share-btn {
+  margin-left: 0;
 }
 .gc-tools-toggle {
   display: flex;

@@ -61,3 +61,19 @@ async def group_chat_stream(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.delete("/groups/{conv_id}/messages")
+async def clear_group_messages(
+    conv_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """清空群聊会话的所有消息（保留会话本身和成员配置）。"""
+    service = GroupChatService(session)
+    # 先校验群聊存在且属于当前用户
+    await service.get_group_or_404(user.id, conv_id)
+    from app.repositories.conversation_repository import MessageRepository
+    msg_repo = MessageRepository(session)
+    await msg_repo.delete_by_conversation(conv_id)
+    return success(None, "消息已清空")

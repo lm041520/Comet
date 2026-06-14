@@ -199,6 +199,9 @@ export const groupApi = {
   listMembers(convId: string) {
     return client.get<unknown, Wrapped<GroupMember[]>>(`/groups/${convId}/members`)
   },
+  clearMessages(convId: string) {
+    return client.delete<unknown, Wrapped<null>>(`/groups/${convId}/messages`)
+  },
 }
 
 // 群聊流式：解析 speaker_start / token / speaker_end 等事件

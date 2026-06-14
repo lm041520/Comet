@@ -87,6 +87,7 @@ class GroupChatService:
                 raise BizError("选择的角色不存在", code=4061, status_code=404)
             members.append(persona)
         title = (body.title or "").strip() or "、".join(m.name for m in members)[:40]
+        title = await self._dedup_title(user_id, title[:256])
         conv = Conversation(
             user_id=user_id,
             title=title[:256],
@@ -99,6 +100,33 @@ class GroupChatService:
             "创建群聊: user=%s conv=%s members=%d", user_id, created.id, len(ids)
         )
         return created
+
+    async def _dedup_title(self, user_id: uuid.UUID, title: str) -> str:
+        """群聊标题去重：同基础名已存在时自动追加「（N）」区分。
+
+        基础名指剥掉末尾「（数字）」后的部分，便于「开新对话」复用同组角色时
+        生成「原名（2）（3）…」这样递增、可读的标题。
+        """
+        import re
+
+        from sqlalchemy import select
+
+        from app.models.conversation_model import Conversation as _Conv
+
+        base = re.sub(r"（\d+）$", "", title).strip() or "群聊"
+        result = await self.session.execute(
+            select(_Conv.title).where(
+                _Conv.user_id == user_id, _Conv.is_group.is_(True)
+            )
+        )
+        existing = {(t or "") for (t,) in result.all()}
+        if base not in existing and title not in existing:
+            return title
+        # 找到下一个可用编号
+        n = 2
+        while f"{base}（{n}）" in existing:
+            n += 1
+        return f"{base}（{n}）"
 
     async def get_group_or_404(
         self, user_id: uuid.UUID, conv_id: uuid.UUID

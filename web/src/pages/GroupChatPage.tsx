@@ -4,9 +4,11 @@ import {
   Button,
   Checkbox,
   Drawer,
+  Dropdown,
   Empty,
   Input,
   Modal,
+  Space,
   Spin,
   Switch,
   Tag,
@@ -19,7 +21,10 @@ import {
   ArrowUpOutlined,
   CloseCircleFilled,
   DeleteOutlined,
+  ExclamationCircleFilled,
+  FormOutlined,
   MenuOutlined,
+  MoreOutlined,
   PictureOutlined,
   PlusOutlined,
   SendOutlined,
@@ -124,10 +129,62 @@ function PersonaAvatar({
   )
 }
 
+// 群头像：仿微信群宫格合成。取前 1~4 个成员头像拼成方块；
+// 成员没头像则用名字首字 + 主题色块补位。纯前端、不落库、成员变动自动跟随。
+function GroupAvatar({
+  members,
+  size = 40,
+}: {
+  members: { name: string; avatar_url?: string | null }[]
+  size?: number
+}) {
+  const list = members.slice(0, 4)
+  if (list.length === 0) {
+    return (
+      <div
+        className="gc-group-avatar gc-group-avatar--empty"
+        style={{ width: size, height: size }}
+      >
+        <TeamOutlined />
+      </div>
+    )
+  }
+  // 单成员直接铺满
+  if (list.length === 1) {
+    return <PersonaAvatar name={list[0].name} avatarUrl={list[0].avatar_url} size={size} />
+  }
+  return (
+    <div
+      className={`gc-group-avatar gc-group-avatar--${list.length}`}
+      style={{ width: size, height: size }}
+    >
+      {list.map((m, i) => (
+        <div className="gc-group-avatar-cell" key={i}>
+          {m.avatar_url ? (
+            <AuthenticatedImage
+              src={m.avatar_url}
+              alt={m.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            <span
+              className="gc-group-avatar-letter"
+              style={{ background: colorFor(m.name) }}
+            >
+              {m.name.slice(0, 1)}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function GroupChatPage() {
   const isMobile = useIsMobile()
   const user = useAuthStore((s) => s.user)
   const [conversations, setConversations] = useState<Conversation[]>([])
+  const [allPersonas, setAllPersonas] = useState<Persona[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [messages, setMessages] = useState<GroupUiMessage[]>([])
   const [members, setMembers] = useState<GroupMember[]>([])
@@ -170,7 +227,27 @@ export default function GroupChatPage() {
 
   useEffect(() => {
     loadConversations()
+    personaApi
+      .list()
+      .then((r) => setAllPersonas(r.data))
+      .catch(() => {})
   }, [])
+
+  // persona id -> {name, avatar_url}，用于群头像宫格合成
+  const personaMap = useMemo(
+    () => new Map(allPersonas.map((p) => [p.id, p])),
+    [allPersonas],
+  )
+
+  // 取某群聊的成员列表（用于宫格头像）：优先 member_persona_ids 顺序
+  const membersForConv = (c: Conversation) => {
+    const ids = ((c as Conversation & { member_persona_ids?: string[] })
+      .member_persona_ids || []) as string[]
+    return ids
+      .map((id) => personaMap.get(id))
+      .filter((p): p is Persona => !!p)
+      .map((p) => ({ name: p.name, avatar_url: p.avatar_url }))
+  }
 
   useEffect(() => {
     const el = scrollRef.current
@@ -403,6 +480,49 @@ export default function GroupChatPage() {
     openConversation(conv.id)
   }
 
+  // 开新对话：复用当前群成员组合 + 工具开关，新建一个空会话。
+  // 标题用原群名传入，后端会自动去重加「（N）」编号区分。
+  const handleNewSession = async () => {
+    if (!activeConv) return
+    const memberIds = (activeConv.member_persona_ids as string[]) || members.map((m) => m.id)
+    if (memberIds.length < 2) {
+      antdMessage.warning('当前群聊成员信息缺失，无法快速开新对话')
+      return
+    }
+    const baseTitle = (activeConv.title || '群聊').replace(/（\d+）$/, '').trim()
+    try {
+      const resp = await groupApi.createGroup(memberIds, baseTitle, !!activeConv.enable_tools)
+      await loadConversations()
+      openConversation(resp.data.id)
+      antdMessage.success('已开启新对话')
+    } catch {
+      antdMessage.error('开新对话失败')
+    }
+  }
+
+  // 清空当前群聊的消息（保留群和成员）
+  const handleClearMessages = () => {
+    if (!activeId) return
+    Modal.confirm({
+      title: '清空当前群聊消息？',
+      icon: <ExclamationCircleFilled style={{ color: '#FF5D34' }} />,
+      content: '该群聊的所有对话记录将被清空，角色组合保留，此操作无法恢复。',
+      okText: '清空',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await groupApi.clearMessages(activeId)
+          setMessages([])
+          loadConversations()
+          antdMessage.success('消息已清空')
+        } catch {
+          antdMessage.error('清空失败')
+        }
+      },
+    })
+  }
+
   const activeConv = conversations.find((c) => c.id === activeId)
 
   // ── 会话列表（侧栏内容） ──
@@ -433,7 +553,7 @@ export default function GroupChatPage() {
               onClick={() => openConversation(c.id)}
             >
               <div className="gc-conv-icon">
-                <TeamOutlined />
+                <GroupAvatar members={membersForConv(c)} size={40} />
               </div>
               <span className="gc-conv-title">{c.title}</span>
               <DeleteOutlined
@@ -466,6 +586,11 @@ export default function GroupChatPage() {
       )}
 
       <div className="gc-main">
+        {isMobile && !activeId ? (
+          /* 手机端未选中会话：直接铺已有群聊列表（新建按钮在列表顶部） */
+          <div className="gc-mobile-list">{listContent}</div>
+        ) : (
+        <>
         {/* 顶栏 */}
         <div className="gc-header">
           {isMobile && (
@@ -478,6 +603,7 @@ export default function GroupChatPage() {
           {activeId ? (
             <div className="gc-header-info">
               <div className="gc-header-title-row">
+                <GroupAvatar members={members} size={32} />
                 <span className="gc-header-title">{activeConv?.title || '群聊'}</span>
                 <Tag bordered={false} className="gc-member-count">
                   {members.length} 位成员
@@ -507,14 +633,41 @@ export default function GroupChatPage() {
             <span className="gc-header-title">群聊</span>
           )}
           {activeId && (
-            <Button
-              type="text"
-              icon={<ShareAltOutlined />}
-              className="gc-share-btn"
-              onClick={() => setShareOpen(true)}
-            >
-              {isMobile ? '' : '分享'}
-            </Button>
+            <div className="gc-header-actions">
+              <Button
+                type="text"
+                icon={<FormOutlined />}
+                className="gc-share-btn"
+                onClick={handleNewSession}
+                title="复用当前角色组合，开启一个全新的空对话"
+              >
+                {isMobile ? '' : '开新对话'}
+              </Button>
+              <Button
+                type="text"
+                icon={<ShareAltOutlined />}
+                className="gc-share-btn"
+                onClick={() => setShareOpen(true)}
+              >
+                {isMobile ? '' : '分享'}
+              </Button>
+              <Dropdown
+                trigger={['click']}
+                menu={{
+                  items: [
+                    {
+                      key: 'clear',
+                      icon: <DeleteOutlined />,
+                      danger: true,
+                      label: '清空消息',
+                      onClick: handleClearMessages,
+                    },
+                  ],
+                }}
+              >
+                <Button type="text" icon={<MoreOutlined />} className="gc-share-btn" />
+              </Dropdown>
+            </div>
           )}
         </div>
 
@@ -530,13 +683,15 @@ export default function GroupChatPage() {
               <p className="gc-placeholder-desc">
                 选择或新建一个群聊，让多个角色一起聊天、互相接话
               </p>
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => setCreateOpen(true)}
-              >
-                新建群聊
-              </Button>
+              <Space direction="vertical" size={10} style={{ alignItems: 'center' }}>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => setCreateOpen(true)}
+                >
+                  新建群聊
+                </Button>
+              </Space>
             </div>
           ) : loadingMsgs ? (
             <div style={{ textAlign: 'center', marginTop: 60 }}>
@@ -693,7 +848,7 @@ export default function GroupChatPage() {
                   ref={inputRef}
                   value={input}
                   onChange={(e) => handleInputChange(e.target.value)}
-                  placeholder="说点什么…（@ 指定成员）"
+                  placeholder="说点什么…"
                   autoSize={{ minRows: 1, maxRows: 4 }}
                   variant="borderless"
                   className="gc-textarea"
@@ -766,6 +921,8 @@ export default function GroupChatPage() {
             )}
             </div>
           </div>
+        )}
+        </>
         )}
       </div>
 

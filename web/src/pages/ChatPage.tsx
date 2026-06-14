@@ -202,7 +202,10 @@ export default function ChatPage() {
   const loadConversations = async () => {
     try {
       const { data } = await chatApi.listConversations()
-      setConversations(data)
+      // 单聊列表排除群聊会话（is_group），群聊在「群聊」页单独管理
+      setConversations(
+        (data as (Conversation & { is_group?: boolean })[]).filter((c) => !c.is_group),
+      )
     } catch (e) {
       antdMessage.error((e as Error).message)
     }
