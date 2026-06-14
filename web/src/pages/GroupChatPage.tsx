@@ -16,7 +16,7 @@ import {
   Upload,
   message as antdMessage,
 } from 'antd'
-import type { InputRef } from 'antd'
+import type { InputRef, MenuProps } from 'antd'
 import {
   ArrowUpOutlined,
   CloseCircleFilled,
@@ -49,6 +49,7 @@ import MarkdownMessage from '@/components/MarkdownMessage'
 import { AuthenticatedImage } from '@/components/AuthenticatedImage'
 import VoiceInputButton from '@/components/VoiceInputButton'
 import { useAuthStore } from '@/stores/authStore'
+import { useGroupHeaderStore } from '@/stores/groupHeaderStore'
 import { copyText } from '@/utils/clipboard'
 import { resolveToolMeta } from '@/pages/chat/types'
 import ShareModal from '@/pages/chat/ShareModal'
@@ -683,6 +684,50 @@ export default function GroupChatPage() {
 
   const activeConv = conversations.find((c) => c.id === activeId)
 
+  // 手机端：把群聊操作注册到全局顶栏（替代搜索框），并隐藏群聊自己的标题栏，合并成一条
+  useEffect(() => {
+    if (!isMobile || !activeId || !activeConv) {
+      useGroupHeaderStore.getState().clear()
+      return
+    }
+    const isOwner = !!activeConv.is_owner
+    const items: MenuProps['items'] = isOwner
+      ? [
+          {
+            key: 'new',
+            icon: <FormOutlined />,
+            label: '开新对话',
+            onClick: () => handleNewSession(),
+          },
+          {
+            key: 'clear',
+            icon: <DeleteOutlined />,
+            danger: true,
+            label: '清空消息',
+            onClick: () => handleClearMessages(),
+          },
+        ]
+      : [
+          {
+            key: 'leave',
+            icon: <LogoutOutlined />,
+            danger: true,
+            label: '退出群聊',
+            onClick: () => handleLeave(),
+          },
+        ]
+    useGroupHeaderStore.getState().register({
+      title: activeConv.title || '群聊',
+      openList: () => setListOpen(true),
+      openInvite: () => setInviteOpen(true),
+      openShare: () => setShareOpen(true),
+      canShare: isOwner,
+      moreItems: items,
+    })
+    return () => useGroupHeaderStore.getState().clear()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, activeId, activeConv?.is_owner, activeConv?.title])
+
   // 退出群聊（非群主）
   const handleLeave = () => {
     if (!activeId) return
@@ -791,7 +836,8 @@ export default function GroupChatPage() {
           <div className="gc-mobile-list">{listContent}</div>
         ) : (
         <>
-        {/* 顶栏 */}
+        {/* 顶栏（桌面端；手机端已合并进全局顶栏） */}
+        {!isMobile && (
         <div className="gc-header">
           {isMobile && (
             <Button
@@ -905,6 +951,7 @@ export default function GroupChatPage() {
             </div>
           )}
         </div>
+        )}
 
         {/* 消息区 */}
         <div className="gc-messages" ref={scrollRef}>
