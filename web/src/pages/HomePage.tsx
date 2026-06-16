@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Card, Col, Empty, Row, Spin, Tag, Tooltip } from 'antd'
+import { Button, Card, Col, Empty, Modal, Row, Spin, Tag, Tooltip } from 'antd'
 import {
   ArrowRightOutlined,
   BookOutlined,
@@ -31,6 +31,8 @@ import {
 import { modelApi, type ModelConfigItem } from '@/api/models'
 import { useAuthStore } from '@/stores/authStore'
 
+const WELCOME_SEEN_KEY = 'comet_welcome_seen'
+
 export default function HomePage() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
@@ -42,6 +44,17 @@ export default function HomePage() {
   const [emotionDist, setEmotionDist] = useState<EmotionDistributionItem[]>([])
   const [models, setModels] = useState<ModelConfigItem[] | null>(null)
   const [loading, setLoading] = useState(false)
+  const [welcomeOpen, setWelcomeOpen] = useState(false)
+
+  // 首次登录弹欢迎引导（localStorage 记忆，只弹一次）
+  useEffect(() => {
+    if (!localStorage.getItem(WELCOME_SEEN_KEY)) setWelcomeOpen(true)
+  }, [])
+
+  const closeWelcome = () => {
+    localStorage.setItem(WELCOME_SEEN_KEY, '1')
+    setWelcomeOpen(false)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -54,7 +67,6 @@ export default function HomePage() {
         .then(({ data }) => {
           if (cancelled) return
           setReview(data)
-          // 后台仍在生成完整回顾：轮询拿最终结果（最多 ~10 次，间隔 3s）
           if (data.generating && polls < 10) {
             polls += 1
             pollTimer = setTimeout(fetchReview, 3000)
@@ -117,9 +129,9 @@ export default function HomePage() {
   const quickSteps = [
     {
       done: hasChat,
-      title: '配置对话模型',
+      title: '配置对话模型（必做）',
       icon: <SettingOutlined />,
-      desc: '前往「模型配置」添加 chat 模型并设为默认，这是问答、记忆萃取、情绪与音乐标注的基础。',
+      desc: '先去「模型配置」加一个对话大模型，这是一切功能的基础。推荐智谱 GLM / DeepSeek（注册即送免费额度），配置页里有各家申请入口，把 API Key 填进去、测试通过即可。',
       action: () => navigate('/settings/models'),
       btn: hasChat ? '已配置' : '去配置',
     },
@@ -127,15 +139,15 @@ export default function HomePage() {
       done: hasEmbedding,
       title: '配置向量模型',
       icon: <SettingOutlined />,
-      desc: '添加 embedding（向量）模型，知识库与记忆的语义检索都依赖它。建议再配一个 rerank 提升精度。',
+      desc: '再加一个 embedding（向量）模型，知识库和记忆的语义检索靠它。同样在「模型配置」里添加。',
       action: () => navigate('/settings/models'),
       btn: hasEmbedding ? '已配置' : '去配置',
     },
     {
       done: hasDocs,
-      title: '建立你的知识库',
+      title: '建立你的知识库（可选）',
       icon: <BookOutlined />,
-      desc: '上传文档或导入网页，系统自动分块、向量化、打标签，之后即可被 AI 检索引用。',
+      desc: '上传文档或导入网页，系统自动分块、向量化、打标签，之后 AI 回答会自动引用你的资料。',
       action: () => navigate('/knowledge'),
       btn: hasDocs ? '去管理' : '去上传',
     },
@@ -143,7 +155,7 @@ export default function HomePage() {
       done: hasChatted,
       title: '开始智能对话',
       icon: <CommentOutlined />,
-      desc: 'AI 会自动调用知识库、记忆、联网工具回答，并在对话后沉淀记忆，越用越懂你。',
+      desc: '配好对话模型就能直接聊。AI 会自动调用知识库、记忆、联网工具回答，并在对话后沉淀记忆，越用越懂你。',
       action: () => navigate('/chat'),
       btn: hasChatted ? '继续对话' : '去对话',
     },
@@ -252,6 +264,9 @@ export default function HomePage() {
   const hasEmotion = (emotionProfile?.sample_count ?? 0) > 0
   const allReady = hasChat && hasEmbedding
   const finishedSteps = quickSteps.filter((s) => s.done).length
+  // 基础没配好（缺对话或向量模型）= 新用户态：首屏聚焦引导、隐藏空数据
+  // models 还没加载完（null）时不判定为新用户，避免闪现
+  const needsSetup = models !== null && !allReady
 
   // 数据概览 KPI 卡片（情绪指数若有则置顶）
   const healthIndex = emotionProfile?.health_index ?? 0
@@ -268,85 +283,103 @@ export default function HomePage() {
     { label: '记忆社区', value: c?.communities ?? 0, icon: <DeploymentUnitOutlined />, color: '#EB2F96' },
   ]
 
-  return (
-    <div className="fluid-page">
-      {/* 欢迎横幅 */}
-      <div className="dash-hero">
-        <h2 className="dash-hero__title">
-          你好，{user?.nickname || user?.username || '朋友'} 👋
-        </h2>
-        <p className="dash-hero__sub">
-          欢迎使用彗记 Comet —— 你的个人 AI 知识库与记忆助手。让 AI 记住你、读懂你的资料。
+  // ── 各区块抽成元素，按「新用户态 / 常用态」组合 ──
+
+  const welcomeModal = (
+    <Modal
+      open={welcomeOpen}
+      onCancel={closeWelcome}
+      centered
+      width={460}
+      footer={null}
+      title={null}
+    >
+      <div style={{ textAlign: 'center', padding: '8px 4px' }}>
+        <div style={{ fontSize: 34, marginBottom: 6 }}>👋</div>
+        <h2 style={{ margin: '0 0 8px', fontSize: 22 }}>欢迎使用彗记 Comet</h2>
+        <p style={{ color: '#475467', lineHeight: 1.85, margin: '0 0 14px' }}>
+          这是你的个人 AI 知识库 + 记忆助手：和 AI 对话、把文档/网页存进知识库让它引用、
+          它还会自动记住你聊过的事，越用越懂你。
         </p>
+        <div
+          style={{
+            background: '#F2F7FF',
+            border: '1px solid #DBE7FF',
+            borderRadius: 12,
+            padding: '12px 16px',
+            textAlign: 'left',
+            color: '#1D2129',
+            lineHeight: 1.8,
+            marginBottom: 18,
+          }}
+        >
+          <b>开始前只需一步：</b>配置一个大模型 API。
+          <br />
+          推荐 <b>智谱 GLM</b> 或 <b>DeepSeek</b>（注册即送免费额度），
+          在「模型配置」页填入 API Key 即可。
+        </div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+          <Button
+            type="primary"
+            size="large"
+            onClick={() => {
+              closeWelcome()
+              navigate('/settings/models')
+            }}
+          >
+            去配置模型
+          </Button>
+          <Button size="large" onClick={closeWelcome}>
+            先随便逛逛
+          </Button>
+        </div>
       </div>
+    </Modal>
+  )
 
-      {/* 今日回顾 */}
-      <Card
-        title="📅 今日回顾"
-        style={{ marginBottom: 22, borderRadius: 16 }}
-        extra={
-          review?.stats && (
-            <span style={{ color: '#98A2B3', fontSize: 13 }}>
-              对话 {review.stats.messages} · 记忆 {review.stats.memories} · 文档{' '}
-              {review.stats.documents}
-              {review.stats.songs ? ` · 听歌 ${review.stats.songs}` : ''}
-            </span>
-          )
-        }
-      >
-        <p style={{ margin: 0, color: '#475467', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
-          {review?.content ?? '加载中…'}
-        </p>
-        {review?.generating && (
-          <div style={{ marginTop: 8, color: '#98A2B3', fontSize: 12 }}>
-            <Spin size="small" style={{ marginRight: 6 }} />
-            正在生成今日回顾…
-          </div>
-        )}
-        {review?.care && (
-          <div className="daily-care">
-            <span className="daily-care-text">💛 {review.care}</span>
-            <Button
-              size="small"
-              type="primary"
-              ghost
-              icon={<CommentOutlined />}
-              onClick={() =>
-                navigate(`/chat?greeting=${encodeURIComponent(review.care ?? '')}`)
-              }
-            >
-              聊聊
-            </Button>
-          </div>
-        )}
-      </Card>
-
-      {/* 快速开始 */}
-      <Card
-        style={{ marginBottom: 22, borderRadius: 16 }}
-        styles={{ body: { padding: 22 } }}
-        title={
-          <span>
-            🚀 快速开始
-            <span style={{ color: '#98A2B3', fontWeight: 400, fontSize: 13, marginLeft: 10 }}>
-              {finishedSteps}/{quickSteps.length} 已完成
-            </span>
+  const quickStartCard = (
+    <Card
+      style={{ marginBottom: 22, borderRadius: 16 }}
+      styles={{ body: { padding: 22 } }}
+      title={
+        <span>
+          🚀 {needsSetup ? '开始使用彗记' : '快速开始'}
+          <span style={{ color: '#98A2B3', fontWeight: 400, fontSize: 13, marginLeft: 10 }}>
+            {finishedSteps}/{quickSteps.length} 已完成
           </span>
-        }
-        extra={
-          allReady ? (
-            <Tag color="success" icon={<CheckCircleFilled />}>
-              基础配置已就绪
-            </Tag>
-          ) : (
-            <Tag color="warning">请先完成模型配置</Tag>
-          )
-        }
-      >
-        <Row gutter={[14, 14]}>
-          {quickSteps.map((step, i) => (
+        </span>
+      }
+      extra={
+        allReady ? (
+          <Tag color="success" icon={<CheckCircleFilled />}>
+            基础配置已就绪
+          </Tag>
+        ) : (
+          <Tag color="warning">第一步：先配置对话模型</Tag>
+        )
+      }
+    >
+      {needsSetup && (
+        <p style={{ margin: '0 0 16px', color: '#475467', lineHeight: 1.8 }}>
+          完成下面几步，就能开始和你的 AI 助手对话啦 👇 其中{' '}
+          <b style={{ color: '#155EEF' }}>配置对话模型是必做项</b>，没配好其他功能都用不了。
+        </p>
+      )}
+      <Row gutter={[14, 14]}>
+        {quickSteps.map((step, i) => {
+          // 高亮"当前应做"的第一个未完成步骤
+          const firstTodo = quickSteps.findIndex((s) => !s.done)
+          const isCurrent = !step.done && i === firstTodo
+          return (
             <Col xs={24} sm={12} lg={6} key={step.title}>
-              <div className={`qs-step${step.done ? ' qs-step--done' : ''}`}>
+              <div
+                className={`qs-step${step.done ? ' qs-step--done' : ''}`}
+                style={
+                  isCurrent
+                    ? { borderColor: '#155EEF', boxShadow: '0 0 0 2px rgba(21,94,239,0.12)' }
+                    : undefined
+                }
+              >
                 <div className="qs-step__num">
                   {step.done ? <CheckCircleFilled /> : i + 1}
                 </div>
@@ -366,43 +399,89 @@ export default function HomePage() {
                 </div>
               </div>
             </Col>
-          ))}
-        </Row>
-      </Card>
+          )
+        })}
+      </Row>
+    </Card>
+  )
 
-      {/* 功能导航 */}
-      <Card
-        title="✨ 功能一览"
-        style={{ marginBottom: 22, borderRadius: 16 }}
-        styles={{ body: { padding: 18 } }}
-      >
-        <Row gutter={[14, 14]}>
-          {features.map((f) => (
-            <Col xs={12} sm={8} md={8} lg={4} key={f.label}>
+  const featuresCard = (
+    <Card
+      title="✨ 功能一览"
+      style={{ marginBottom: 22, borderRadius: 16 }}
+      styles={{ body: { padding: 18 } }}
+    >
+      <Row gutter={[14, 14]}>
+        {features.map((f) => (
+          <Col xs={12} sm={8} md={8} lg={4} key={f.label}>
+            <div
+              className="qs-step"
+              style={{ cursor: 'pointer', alignItems: 'center' }}
+              onClick={() => navigate(f.to)}
+            >
               <div
-                className="qs-step"
-                style={{ cursor: 'pointer', alignItems: 'center' }}
-                onClick={() => navigate(f.to)}
+                className="stat-card__icon"
+                style={{ background: `${f.color}1a`, color: f.color, marginBottom: 0 }}
               >
-                <div
-                  className="stat-card__icon"
-                  style={{ background: `${f.color}1a`, color: f.color, marginBottom: 0 }}
-                >
-                  {f.icon}
-                </div>
-                <div>
-                  <div className="qs-step__title">{f.label}</div>
-                  <div className="qs-step__desc" style={{ marginTop: 2 }}>
-                    {f.desc}
-                  </div>
+                {f.icon}
+              </div>
+              <div>
+                <div className="qs-step__title">{f.label}</div>
+                <div className="qs-step__desc" style={{ marginTop: 2 }}>
+                  {f.desc}
                 </div>
               </div>
-            </Col>
-          ))}
-        </Row>
-      </Card>
+            </div>
+          </Col>
+        ))}
+      </Row>
+    </Card>
+  )
 
-      {/* 数据概览 */}
+  const reviewCard = (
+    <Card
+      title="📅 今日回顾"
+      style={{ marginBottom: 22, borderRadius: 16 }}
+      extra={
+        review?.stats && (
+          <span style={{ color: '#98A2B3', fontSize: 13 }}>
+            对话 {review.stats.messages} · 记忆 {review.stats.memories} · 文档{' '}
+            {review.stats.documents}
+            {review.stats.songs ? ` · 听歌 ${review.stats.songs}` : ''}
+          </span>
+        )
+      }
+    >
+      <p style={{ margin: 0, color: '#475467', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+        {review?.content ?? '加载中…'}
+      </p>
+      {review?.generating && (
+        <div style={{ marginTop: 8, color: '#98A2B3', fontSize: 12 }}>
+          <Spin size="small" style={{ marginRight: 6 }} />
+          正在生成今日回顾…
+        </div>
+      )}
+      {review?.care && (
+        <div className="daily-care">
+          <span className="daily-care-text">💛 {review.care}</span>
+          <Button
+            size="small"
+            type="primary"
+            ghost
+            icon={<CommentOutlined />}
+            onClick={() =>
+              navigate(`/chat?greeting=${encodeURIComponent(review.care ?? '')}`)
+            }
+          >
+            聊聊
+          </Button>
+        </div>
+      )}
+    </Card>
+  )
+
+  const dataSection = (
+    <>
       <div className="dash-section-title">📊 数据概览</div>
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40 }}>
@@ -426,7 +505,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* 图表：两行等宽 */}
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} md={12}>
           <Card title="知识库分类分布" style={{ borderRadius: 16 }}>
@@ -452,16 +530,13 @@ export default function HomePage() {
         </Col>
       </Row>
 
-      {/* 情绪洞察：两张等宽 */}
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} md={12}>
           <Card
             title={
               <span>
                 近 14 天情绪趋势
-                <Tooltip
-                  title="情绪倾向：越高越积极开心、越低越消极低落（范围 -1~1）；情绪强度：越高情绪越激动强烈、越低越平静（范围 -1~1）。由 AI 从你的对话中感知。"
-                >
+                <Tooltip title="情绪倾向：越高越积极开心、越低越消极低落（范围 -1~1）；情绪强度：越高情绪越激动强烈、越低越平静（范围 -1~1）。由 AI 从你的对话中感知。">
                   <QuestionCircleOutlined style={{ marginLeft: 6, color: '#98a2b3', fontSize: 13 }} />
                 </Tooltip>
               </span>
@@ -485,6 +560,40 @@ export default function HomePage() {
           </Card>
         </Col>
       </Row>
+    </>
+  )
+
+  return (
+    <div className="fluid-page">
+      {welcomeModal}
+
+      {/* 欢迎横幅 */}
+      <div className="dash-hero">
+        <h2 className="dash-hero__title">
+          你好，{user?.nickname || user?.username || '朋友'} 👋
+        </h2>
+        <p className="dash-hero__sub">
+          {needsSetup
+            ? '只差一步就能开始：先配置一个对话大模型，下面有详细引导。'
+            : '欢迎使用彗记 Comet —— 你的个人 AI 知识库与记忆助手。让 AI 记住你、读懂你的资料。'}
+        </p>
+      </div>
+
+      {needsSetup ? (
+        // 新用户态：聚焦引导，隐藏空的数据看板
+        <>
+          {quickStartCard}
+          {featuresCard}
+        </>
+      ) : (
+        // 常用态：完整面板（已全部完成则不再显示引导卡）
+        <>
+          {reviewCard}
+          {finishedSteps < quickSteps.length && quickStartCard}
+          {featuresCard}
+          {dataSection}
+        </>
+      )}
     </div>
   )
 }
