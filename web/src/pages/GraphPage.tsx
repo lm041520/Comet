@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Card, Empty, Space, Spin, Tag, Typography, message } from 'antd'
 import { MergeCellsOutlined, ReloadOutlined } from '@ant-design/icons'
 import ReactECharts from 'echarts-for-react'
@@ -24,7 +24,7 @@ const REL_LABEL: Record<string, string> = {
   RELATION: '关系',
   INVOLVES: '涉及',
 }
-const DEFAULT_KINDS: Kind[] = ['Entity', 'Event']
+const DEFAULT_KINDS: Kind[] = ['Entity', 'Event', 'Statement', 'Chunk', 'Dialogue']
 
 interface EchartsParam {
   dataType?: string
@@ -38,6 +38,19 @@ export default function GraphPage() {
   const [merging, setMerging] = useState(false)
   // 当前显示的节点大类（默认只显示实体 + 事件，避免溯源层一次性全画导致卡顿）
   const [visibleKinds, setVisibleKinds] = useState<Set<string>>(() => new Set(DEFAULT_KINDS))
+  // 容器实际高度（百分比高度在 minHeight 撑起的父级下会算成 0，必须用像素值喂给 ECharts）
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [chartH, setChartH] = useState(560)
+
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const update = () => setChartH(el.clientHeight || 560)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [data])
 
   const load = (showLoading = true) => {
     if (showLoading) setLoading(true)
@@ -241,7 +254,7 @@ export default function GraphPage() {
         styles={{ body: { padding: 0, height: 'calc(100% - 57px)' } }}
         style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
       >
-        <div style={{ position: 'relative', height: '100%', minHeight: '32rem' }}>
+        <div ref={wrapRef} style={{ position: 'relative', height: '100%', minHeight: '32rem' }}>
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
               <Spin />
@@ -257,7 +270,7 @@ export default function GraphPage() {
                   key={Array.from(visibleKinds).sort().join(',')}
                   option={option}
                   notMerge
-                  style={{ width: '100%', height: '100%' }}
+                  style={{ width: '100%', height: chartH }}
                   onEvents={onEvents}
                 />
               )}
@@ -393,7 +406,7 @@ export default function GraphPage() {
                 共 {data.nodes.length} 节点 · {data.edges.length} 关系，当前显示{' '}
                 {visibleNodes.length} 个
                 <br />
-                点下方圆点切换显示的类型 · 大小=连接数 · 滚轮缩放、拖拽 · 点实体看详情
+                点下方圆点可隐藏某类型 · 大小=连接数 · 滚轮缩放、拖拽 · 点实体看详情
               </div>
             </>
           )}
