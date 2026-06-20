@@ -104,10 +104,12 @@ def build_speaker_messages(
     member_names: list[str],
     transcript: str,
     with_tool_hint: bool = False,
+    human_mode: bool = False,
 ) -> list:
     """构造某角色发言的 LLM 消息：人设 + 群聊场景说明 + 当前 transcript。
 
     with_tool_hint：群聊开了工具时传 True，附带"时效问题应联网"的引导。
+    human_mode：该角色开了真人模式时叠加「真人聊天风格」段（口语短句、可多气泡）。
     """
     system = render_agent_prompt(
         "group_speaker.jinja2",
@@ -120,6 +122,8 @@ def build_speaker_messages(
     from app.core.agent.context_hint import current_context_block
 
     system = system + "\n\n" + current_context_block(with_tool_hint=with_tool_hint)
+    if human_mode:
+        system = system + "\n\n" + render_agent_prompt("human_style.jinja2")
     return [SystemMessage(content=system)]
 
 
@@ -129,10 +133,11 @@ async def stream_speaker(
     self_name: str,
     member_names: list[str],
     transcript: str,
+    human_mode: bool = False,
 ) -> AsyncGenerator[str, None]:
     """流式产出某角色的发言 token。"""
     messages = build_speaker_messages(
-        persona_prompt, self_name, member_names, transcript
+        persona_prompt, self_name, member_names, transcript, human_mode=human_mode
     )
     # 追加一条 user 轮次提示：部分 provider（智谱/通义等）不接受「只有 system、无 user」
     # 的消息数组（报 messages 参数非法），故显式补一条用户消息触发本角色发言。

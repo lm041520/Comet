@@ -226,6 +226,18 @@ export default function ChatPage() {
     loadConversations()
   }, [])
 
+  // 重进对话页：默认打开「上次的对话」（最近一条），而不是新开空白会话。
+  // 有深链(?conversation/greeting/message)或已选中会话时不抢。仅在首次会话到位时执行一次。
+  const autoOpenedRef = useRef(false)
+  useEffect(() => {
+    if (autoOpenedRef.current || conversations.length === 0) return
+    autoOpenedRef.current = true
+    if (activeId) return
+    if (params.get('conversation') || params.get('greeting') || params.get('message')) return
+    openConversation(conversations[0].id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations])
+
   // 加载对话头像上下文：当前角色头像 + 用户头像 + 显示开关
   const loadAvatars = async () => {
     try {
@@ -240,6 +252,7 @@ export default function ChatPage() {
         personaName: active?.name,
         personaAvatarUrl: active?.avatar_url ?? null,
         userAvatarUrl: meResp.data.avatar ?? null,
+        humanMode: cResp.data.human_mode,
       })
     } catch {
       // 头像信息拉取失败不影响对话
@@ -326,6 +339,7 @@ export default function ChatPage() {
           favId: favByMsg[m.id] ?? null,
           feedback: m.feedback ?? null,
           createdAt: m.created_at,
+          fromHistory: true,
         })),
       )
       if (focusMessageId) {

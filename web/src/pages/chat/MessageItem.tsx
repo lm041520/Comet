@@ -13,12 +13,13 @@ import {
 } from '@ant-design/icons'
 import MarkdownMessage from '@/components/MarkdownMessage'
 import ChatProcess from './ChatProcess'
+import HumanBubbles from './HumanBubbles'
 import { favoriteApi } from '@/api/favorites'
 import { chatApi } from '@/api/chat'
 import { copyText } from '@/utils/clipboard'
 import { AuthenticatedImage } from '@/components/AuthenticatedImage'
 import type { ChatAvatars, UiMessage } from './types'
-import { formatMsgTime } from './types'
+import { formatMsgTime, hasBubbleSep } from './types'
 
 export default function MessageItem({
   msg,
@@ -37,7 +38,9 @@ export default function MessageItem({
   const [feedback, setFeedback] = useState<'up' | 'down' | null>(msg.feedback ?? null)
 
   const onCopy = async () => {
-    const ok = await copyText(msg.content)
+    // 多气泡分隔符还原成换行再复制
+    const text = msg.content.replace(/\s*\[\[next\]\]\s*/g, '\n')
+    const ok = await copyText(text)
     if (ok) antdMessage.success('已复制')
     else antdMessage.error('复制失败')
   }
@@ -132,6 +135,11 @@ export default function MessageItem({
   // AI 流式中且还没出 content 时不渲染空气泡（过程组件已经表达了"在动"）
   const shouldRenderBubble =
     isUser || (msg.content ? true : !msg.streaming && !hasProcess)
+  // 全局真人模式：AI 回复走「正在输入…→逐条气泡」，不显示助手过程条（正在理解问题…）
+  const humanModeActive = !!avatars?.humanMode
+  const humanMode = !isUser && humanModeActive
+  // 真人模式多气泡：AI 消息且内容含分隔符 → 拆成多个微信式气泡逐条展示
+  const isHumanMulti = !isUser && !!msg.content && hasBubbleSep(msg.content)
 
   return (
     <div
@@ -146,8 +154,8 @@ export default function MessageItem({
     >
       {renderAvatar()}
       <div style={{ maxWidth: '82%', minWidth: 0 }}>
-        {/* AI 过程流：顶部进度线 + 状态条 + 工具 chip 行 + 可展开详情 */}
-        {!isUser && (msg.streaming || hasProcess) && (
+        {/* AI 过程流：顶部进度线 + 状态条 + 工具 chip 行 + 可展开详情（真人模式不显示，改用「正在输入」气泡） */}
+        {!isUser && !humanMode && (msg.streaming || hasProcess) && (
           <ChatProcess
             toolRuns={processRuns}
             citations={msg.citations}
@@ -156,7 +164,28 @@ export default function MessageItem({
           />
         )}
 
-        {shouldRenderBubble && (
+        {/* 真人模式：全程走打字气泡（正在输入… → 逐条冒出），不出现助手过程条与原始流式文本 */}
+        {humanMode && (msg.content || msg.streaming) && (
+          <div data-ai-message="true">
+            <HumanBubbles
+              content={msg.content}
+              streaming={msg.streaming}
+              instant={!!msg.fromHistory}
+            />
+          </div>
+        )}
+
+        {!humanMode && shouldRenderBubble && isHumanMulti && (
+          <div data-ai-message="true">
+            <HumanBubbles
+              content={msg.content}
+              streaming={msg.streaming}
+              instant={!!msg.fromHistory}
+            />
+          </div>
+        )}
+
+        {!humanMode && shouldRenderBubble && !isHumanMulti && (
           <div
             data-ai-message={!isUser ? 'true' : undefined}
             style={{
@@ -230,8 +259,8 @@ export default function MessageItem({
           </div>
         )}
 
-        {/* 用户消息复制按钮 + 时间（右对齐） */}
-        {isUser && msg.content && (
+        {/* 用户消息复制按钮 + 时间（右对齐）；真人模式下隐藏整排 */}
+        {isUser && msg.content && !humanModeActive && (
           <div
             style={{
               marginTop: 4,
@@ -258,8 +287,8 @@ export default function MessageItem({
           </div>
         )}
 
-        {/* 引用来源 + 复制按钮（AI 消息） */}
-        {!isUser && (
+        {/* 引用来源 + 复制按钮（AI 消息）；真人模式下隐藏整排 */}
+        {!isUser && !humanModeActive && (
           <div style={{ marginTop: 6 }}>
             {msg.citations && msg.citations.length > 0 && (
               <Space size={[4, 4]} wrap style={{ marginBottom: 4 }}>

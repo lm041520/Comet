@@ -46,6 +46,8 @@ class AgentConfigService:
             config.enable_cross_session = body.enable_cross_session
         if body.show_avatar is not None:
             config.show_avatar = body.show_avatar
+        if body.human_mode is not None:
+            config.human_mode = body.human_mode
         return await self.repo.save(config)
 
     async def optimize_prompt(self, user_id: uuid.UUID, raw_prompt: str) -> str:
@@ -94,4 +96,5 @@ class AgentConfigService:
             "enable_active_recall": config.enable_active_recall,
             "enable_cross_session": config.enable_cross_session,
             "show_avatar": config.show_avatar,
+            "human_mode": config.human_mode,
         }

@@ -13,6 +13,7 @@ class AgentConfigUpdate(BaseModel):
     enable_active_recall: bool | None = None
     enable_cross_session: bool | None = None
     show_avatar: bool | None = None
+    human_mode: bool | None = None
 
 
 class OptimizePromptRequest(BaseModel):

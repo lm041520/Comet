@@ -191,6 +191,7 @@ class ChatService:
         """组装 system prompt：角色卡人设 + 技能任务提示词 + few-shot 示例（叠加）。
 
         角色卡定「我是谁」，技能叠加「我现在干什么专项任务」。两者可组合。
+        开启真人模式（persona.human_mode）则再叠加「真人聊天风格」段，让回复口语化、可多气泡。
         """
         parts: list[str] = []
         persona_prompt = (persona.system_prompt.strip() if persona else "") or ""
@@ -571,10 +572,14 @@ class ChatService:
         from app.core.agent.context_hint import current_context_block
 
         async def _assemble_prompt(has_tools: bool) -> str:
-            """组装 system prompt：人设/技能 + 时效引导 + 主动召回 + 跨会话。"""
+            """组装 system prompt：人设/技能 + 时效引导 + 主动召回 + 跨会话 + 真人模式。"""
             sp = (
                 base_prompt + "\n\n" + current_context_block(with_tool_hint=has_tools)
             ).strip()
+            if agent is not None and agent.human_mode:
+                from app.core.agent.prompt_renderer import render_agent_prompt
+
+                sp = (sp + "\n\n" + render_agent_prompt("human_style.jinja2")).strip()
             if agent is None or agent.enable_active_recall:
                 recall = await self._recall_memory(user_id, user_text)
                 if recall:

@@ -161,6 +161,17 @@ class GroupChatService:
         conv = await self.get_group_for_member(user_id, conv_id)
         return await self._load_members(conv.user_id, conv)
 
+    async def _human_mode(self, user_id: uuid.UUID) -> bool:
+        """读用户全局真人模式开关（群主级，应用到全群角色）。失败默认关。"""
+        try:
+            from app.repositories.agent_config_repository import AgentConfigRepository
+
+            cfg = await AgentConfigRepository(self.session).get_by_user(user_id)
+            return bool(cfg.human_mode) if cfg else False
+        except Exception as e:  # noqa: BLE001
+            logger.warning("读取真人模式开关失败（默认关）: %s", e)
+            return False
+
     async def _load_members(self, user_id: uuid.UUID, conv: Conversation) -> list[dict]:
         """加载群成员角色卡，返回 [{id, name, system_prompt, avatar_url}]（按存储顺序）。"""
         members: list[dict] = []
@@ -639,6 +650,7 @@ class GroupChatService:
         member_names = [m["name"] for m in members]
         name_to_member = {m["name"]: m for m in members}
         cid = str(conv_id)
+        human_mode = await self._human_mode(owner_id)
 
         history = await self._history_for_transcript(conv_id)
         transcript = build_transcript(history)
@@ -734,6 +746,7 @@ class GroupChatService:
                     transcript,
                     tools,
                     image_parts,
+                    human_mode=human_mode,
                 ):
                     if ev["type"] == "token":
                         full_text += ev["text"]
@@ -852,6 +865,7 @@ class GroupChatService:
                 return
             member_names = [m["name"] for m in members]
             name_to_member = {m["name"]: m for m in members}
+            human_mode = await self._human_mode(user_id)
 
             # 本轮图片（多模态看图）：存进 user 消息 meta_data，供历史还原与分享
             image_keys = list(body.image_keys or [])
@@ -964,6 +978,7 @@ class GroupChatService:
                     transcript,
                     tools,
                     image_parts,
+                    human_mode=human_mode,
                 ):
                     if ev["type"] == "token":
                         full_text += ev["text"]
@@ -1052,6 +1067,7 @@ class GroupChatService:
         transcript: str,
         tools: list,
         image_parts: list[dict] | None = None,
+        human_mode: bool = False,
     ) -> AsyncGenerator[dict, None]:
         """让单个角色发言。
 
@@ -1065,13 +1081,14 @@ class GroupChatService:
         from app.core.agent.orchestrator import run_function_calling, run_react
 
         image_parts = image_parts or []
-        # 角色发言的 system prompt（人设 + 群聊场景说明 + 当前日期）
+        # 角色发言的 system prompt（人设 + 群聊场景说明 + 当前日期 + 可选真人模式）
         sys_messages = build_speaker_messages(
             member["system_prompt"],
             member["name"],
             member_names,
             transcript,
             with_tool_hint=bool(tools),
+            human_mode=human_mode,
         )
         system_prompt = sys_messages[0].content if sys_messages else ""
         turn_text = f"现在轮到你「{member['name']}」发言，请基于上面的群聊记录自然接话。"
@@ -1079,7 +1096,8 @@ class GroupChatService:
         # 纯人设、无图：直接流式
         if not tools and not image_parts:
             async for token in stream_speaker(
-                model, member["system_prompt"], member["name"], member_names, transcript
+                model, member["system_prompt"], member["name"], member_names, transcript,
+                human_mode=human_mode,
             ):
                 yield {"type": "token", "text": token}
             return

@@ -2368,7 +2368,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 20px;
   flex-wrap: wrap;
 }
 .persona-hero-title {
@@ -2381,17 +2381,26 @@ body {
   margin-top: 6px;
   font-size: 13px;
   color: rgba(255, 255, 255, 0.72);
+  max-width: 360px;
+}
+/* 开关区：两列网格，整齐排列；窄屏自动并到下方 */
+.persona-hero-switches {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(170px, 1fr));
+  gap: 10px;
 }
 .persona-hero-switch {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 14px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  white-space: nowrap;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.16);
-  padding: 8px 14px;
-  border-radius: 999px;
+  padding: 7px 14px;
+  border-radius: 12px;
   backdrop-filter: blur(6px);
 }
 
@@ -2640,7 +2649,15 @@ body {
   }
   .persona-hero-content {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+  }
+  .persona-hero-switches {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+  .persona-hero-switch {
+    justify-content: space-between;
+    font-size: 14px;
   }
   .persona-gallery {
     grid-template-columns: 1fr;
@@ -3611,9 +3628,14 @@ body {
   gap: 4px;
   min-width: 0;
   max-width: calc(100% - 44px);
+  align-items: flex-start;
+}
+.share-msg-user .share-bubble-wrap {
+  align-items: flex-end;
 }
 .share-bubble-wrap .share-bubble {
   max-width: 100%;
+  width: fit-content;
 }
 .share-sender {
   font-size: 12.5px;
@@ -5302,5 +5324,64 @@ body {
   }
   @page {
     margin: 16mm;
+  }
+}
+
+/* 真人模式多气泡：每条独立的微信式 AI 气泡 */
+.human-bubble {
+  align-self: flex-start;
+  max-width: 100%;
+  width: fit-content;
+  background: #fff;
+  color: #1d2129;
+  padding: 10px 14px;
+  border-radius: 4px 16px 16px 16px;
+  border: 1px solid #eef0f4;
+  box-shadow: 0 4px 16px -10px rgba(16, 24, 40, 0.2);
+  font-size: 16px;
+  line-height: 1.7;
+  animation: human-bubble-in 0.22s ease;
+}
+
+@keyframes human-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 「正在输入…」三点跳动 */
+.human-bubble-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 12px 16px;
+}
+.human-bubble-typing .typing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #c2c8d0;
+  display: inline-block;
+  animation: typing-bounce 1.2s infinite ease-in-out;
+}
+.human-bubble-typing .typing-dot:nth-child(2) {
+  animation-delay: 0.18s;
+}
+.human-bubble-typing .typing-dot:nth-child(3) {
+  animation-delay: 0.36s;
+}
+@keyframes typing-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
   }
 }

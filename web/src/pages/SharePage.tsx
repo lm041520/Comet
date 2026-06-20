@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Spin, Result, Button } from 'antd'
 import MarkdownMessage from '@/components/MarkdownMessage'
 import { shareApi, type SharePublic } from '@/api/shares'
+import { splitBubbles, hasBubbleSep } from '@/pages/chat/types'
 import logo from '@/images/logo.png'
 
 // 对话分享公开查看页（无需登录）：只读渲染快照消息。
@@ -90,22 +91,30 @@ export default function SharePage() {
                 )}
                 <div className="share-bubble-wrap">
                   {!onRight && leftName && <div className="share-sender">{leftName}</div>}
-                  <div className="share-bubble">
-                    {m.images && m.images.length > 0 && (
-                      <div className="share-images">
-                        {m.images.map((src, k) => (
-                          <img key={k} src={src} alt="" className="share-image" />
-                        ))}
+                  {!isUser && hasBubbleSep(m.content) ? (
+                    splitBubbles(m.content).map((seg, k) => (
+                      <div className="share-bubble" key={k} style={{ marginBottom: 6 }}>
+                        <MarkdownMessage content={seg} />
                       </div>
-                    )}
-                    {isUser ? (
-                      m.content && (
-                        <span style={{ whiteSpace: 'pre-wrap' }}>{m.content}</span>
-                      )
-                    ) : (
-                      <MarkdownMessage content={m.content} />
-                    )}
-                  </div>
+                    ))
+                  ) : (
+                    <div className="share-bubble">
+                      {m.images && m.images.length > 0 && (
+                        <div className="share-images">
+                          {m.images.map((src, k) => (
+                            <img key={k} src={src} alt="" className="share-image" />
+                          ))}
+                        </div>
+                      )}
+                      {isUser ? (
+                        m.content && (
+                          <span style={{ whiteSpace: 'pre-wrap' }}>{m.content}</span>
+                        )
+                      ) : (
+                        <MarkdownMessage content={m.content} />
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )

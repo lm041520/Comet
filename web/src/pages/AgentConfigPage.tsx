@@ -30,6 +30,7 @@ export default function AgentConfigPage() {
   const [showAvatar, setShowAvatar] = useState(false)
   const [activeRecall, setActiveRecall] = useState(true)
   const [crossSession, setCrossSession] = useState(false)
+  const [humanMode, setHumanMode] = useState(false)
   const [activatingId, setActivatingId] = useState<string | null>(null)
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [editOpen, setEditOpen] = useState(false)
@@ -48,6 +49,7 @@ export default function AgentConfigPage() {
       setShowAvatar(cResp.data.show_avatar)
       setActiveRecall(cResp.data.enable_active_recall)
       setCrossSession(cResp.data.enable_cross_session)
+      setHumanMode(cResp.data.human_mode)
     } catch (e) {
       message.error((e as Error).message)
     } finally {
@@ -98,6 +100,16 @@ export default function AgentConfigPage() {
       await agentConfigApi.update({ enable_cross_session: v })
     } catch (e) {
       setCrossSession(!v)
+      message.error((e as Error).message)
+    }
+  }
+
+  const onToggleHumanMode = async (v: boolean) => {
+    setHumanMode(v)
+    try {
+      await agentConfigApi.update({ human_mode: v })
+    } catch (e) {
+      setHumanMode(!v)
       message.error((e as Error).message)
     }
   }
@@ -345,6 +357,7 @@ export default function AgentConfigPage() {
               单个角色化身你想聊的人，卡组把多个角色打包成一键群聊的场景
             </div>
           </div>
+          <div className="persona-hero-switches">
           <div className="persona-hero-switch">
             <span>
               显示对话头像
@@ -371,6 +384,16 @@ export default function AgentConfigPage() {
               </Tooltip>
             </span>
             <Switch checked={crossSession} onChange={onToggleCrossSession} />
+          </div>
+          <div className="persona-hero-switch">
+            <span>
+              真人对话模式
+              <Tooltip title="开启后所有对话/群聊都像真人微信聊天：口语、简短、会分多条气泡连发；关闭恢复助手风格（结构化、可长篇）">
+                <QuestionCircleOutlined style={{ marginLeft: 6, opacity: 0.7 }} />
+              </Tooltip>
+            </span>
+            <Switch checked={humanMode} onChange={onToggleHumanMode} />
+          </div>
           </div>
         </div>
       </div>

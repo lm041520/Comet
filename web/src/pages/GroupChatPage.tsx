@@ -56,7 +56,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useGroupHeaderStore } from '@/stores/groupHeaderStore'
 import { copyText } from '@/utils/clipboard'
 import { favoriteApi } from '@/api/favorites'
-import { resolveToolMeta, formatMsgTime } from '@/pages/chat/types'
+import { resolveToolMeta, formatMsgTime, splitBubbles, hasBubbleSep } from '@/pages/chat/types'
 import ShareModal from '@/pages/chat/ShareModal'
 
 // 群聊页内的消息模型（含流式态 + 发送者 + 工具调用标记）
@@ -287,7 +287,7 @@ export default function GroupChatPage() {
     })
 
   const onCopyMsg = async (text: string) => {
-    const ok = await copyText(text)
+    const ok = await copyText((text || '').replace(/\s*\[\[next\]\]\s*/g, '\n'))
     if (ok) antdMessage.success('已复制')
     else antdMessage.error('复制失败')
   }
@@ -1214,17 +1214,36 @@ export default function GroupChatPage() {
                         </div>
                       )
                     })()}
-                    <div className="gc-bubble gc-bubble--ai">
-                      {m.content ? (
-                        <MarkdownMessage content={m.content} />
+                    {m.content ? (
+                      hasBubbleSep(m.content) ? (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 6,
+                            alignItems: 'flex-start',
+                          }}
+                        >
+                          {splitBubbles(m.content).map((seg, i) => (
+                            <div key={i} className="gc-bubble gc-bubble--ai">
+                              <MarkdownMessage content={seg} />
+                            </div>
+                          ))}
+                        </div>
                       ) : (
+                        <div className="gc-bubble gc-bubble--ai">
+                          <MarkdownMessage content={m.content} />
+                        </div>
+                      )
+                    ) : (
+                      <div className="gc-bubble gc-bubble--ai">
                         <span className="gc-typing">
                           <i />
                           <i />
                           <i />
                         </span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                     {m.createdAt && !m.streaming && (
                       <div className="gc-ai-actions">
                         {m.content && (

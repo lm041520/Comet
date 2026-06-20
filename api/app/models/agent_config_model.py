@@ -38,6 +38,8 @@ class AgentConfig(Base):
     enable_cross_session: Mapped[bool] = mapped_column(Boolean, default=False)
     # 对话界面是否显示头像（开 → AI 人格头像 + 用户头像；关 → 两边都不显示）
     show_avatar: Mapped[bool] = mapped_column(Boolean, default=False)
+    # 真人对话模式（全局）：开启后单聊/群聊都像真人微信聊天（口语短句、可多气泡），关闭恢复助手风格
+    human_mode: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

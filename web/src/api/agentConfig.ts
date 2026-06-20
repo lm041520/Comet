@@ -15,6 +15,7 @@ export interface AgentConfig {
   enable_active_recall: boolean
   enable_cross_session: boolean
   show_avatar: boolean
+  human_mode: boolean
 }
 
 export const agentConfigApi = {
