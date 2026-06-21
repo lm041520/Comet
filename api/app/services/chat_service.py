@@ -7,6 +7,7 @@
 """
 import asyncio
 import json
+import re
 import uuid
 from collections.abc import AsyncGenerator
 
@@ -49,6 +50,48 @@ MAX_HISTORY_TURNS = 20
 _BG_TASKS: set = set()
 # 单次写流式缓冲的最小 token 间隔（攒够 N 个 token 才刷一次 Redis，降低写频）
 _BUFFER_FLUSH_EVERY = 8
+
+
+# ── 主动召回优化：用户级温热缓存（始终注入 + 后台刷新）──────────────
+# 召回（embedding + 图查询）原本每轮同步执行，直接加在首字延迟上。改为：
+#   1) 缓存「我对用户的了解」(按 user_id)，**每一轮都注入**——闲聊/首轮/新会话都认识你；
+#   2) 命中缓存时 0 阻塞注入；仅实质消息（非寒暄）才在后台用本轮问题刷新缓存；
+#   3) 进程内该用户首次无缓存时同步算一次（仅这一次阻塞），之后永远温热。
+# 记忆内容（洞察+事实）本就稳定，滞后一轮刷新对体验几乎无感，却省掉每轮的召回延迟。
+_recall_cache: dict[str, str] = {}  # user_id -> 上次算好的「对用户的了解」召回块
+_RECALL_CACHE_MAX = 2000  # 软上限，超过淘汰最早插入的用户
+
+# 纯寒暄 / 应答类短消息（整句匹配才算）：仍注入缓存，但不触发后台重算
+_GREETING_RE = re.compile(
+    r"^(在吗|在不在|你好啊?|您好|hi|hello|嗨|哈喽|哈罗|早|早安|午安|晚安|晚上好|"
+    r"早上好|中午好|下午好|好的?|好滴|行|可以|嗯+|哦+|噢+|额|啊+|哈+|呵+|嘿+|"
+    r"拜拜|再见|谢谢|多谢|蟹蟹|thanks?|ok|okay)[。.!！?？~～\s]*$",
+    re.IGNORECASE,
+)
+
+
+def _is_trivial_for_recall(text: str) -> bool:
+    """寒暄 / 超短消息：不触发后台重算（但仍注入已有缓存）。长度 ≤2 或整句命中寒暄词。"""
+    t = (text or "").strip()
+    if len(t) <= 2:
+        return True
+    return bool(_GREETING_RE.match(t))
+
+
+def _recall_cache_set(user_id: str, text: str) -> None:
+    """写召回缓存，带软上限 FIFO 淘汰。"""
+    if user_id not in _recall_cache and len(_recall_cache) >= _RECALL_CACHE_MAX:
+        oldest = next(iter(_recall_cache), None)
+        if oldest is not None:
+            _recall_cache.pop(oldest, None)
+    _recall_cache[user_id] = text
+
+
+def _spawn_bg(coro) -> None:
+    """调度后台任务并持有引用，完成后自动移除（防被 GC 取消）。"""
+    task = asyncio.create_task(coro)
+    _BG_TASKS.add(task)
+    task.add_done_callback(_BG_TASKS.discard)
 
 
 def _compose_with_attachments(user_text: str, attachments: list) -> str:
@@ -168,14 +211,20 @@ class ChatService:
             logger.warning("跨会话上下文构建失败（忽略）: user=%s err=%s", user_id, e)
             return ""
 
-    async def _recall_memory(self, user_id: uuid.UUID, query: str) -> str:
-        """主动记忆召回：失败不影响对话，返回空串。"""
+    async def _recall_memory(
+        self, user_id: uuid.UUID, query: str, session: AsyncSession | None = None
+    ) -> str:
+        """主动记忆召回：失败不影响对话，返回空串。
+
+        session 为空时用请求 session；后台刷新任务传入独立 session（请求已结束）。
+        """
+        sess = session or self.session
         try:
             from app.core.llm.resolver import get_optional_client_for_type
             from app.core.memory.retrieval.active_recall import recall_context
 
             embed_client = await get_optional_client_for_type(
-                self.session, user_id, "embedding"
+                sess, user_id, "embedding"
             )
             if embed_client is None:
                 return ""
@@ -185,6 +234,32 @@ class ChatService:
         except Exception as e:
             logger.warning("主动记忆召回失败（忽略）: user=%s err=%s", user_id, e)
             return ""
+
+    async def _recall_lagged(self, user_id: uuid.UUID, query: str) -> str:
+        """用户级温热召回：始终注入「对用户的了解」（含闲聊/首轮），实质消息后台刷新。
+
+        - 命中缓存：0 阻塞返回，非寒暄消息再后台刷新供下次更新；
+        - 进程内该用户首次无缓存：同步算一次（仅这一次阻塞），保证首轮就有记忆。
+        """
+        uid = str(user_id)
+        cached = _recall_cache.get(uid)
+        if cached is None:
+            text = await self._recall_memory(user_id, query)
+            _recall_cache_set(uid, text or "")
+            return text or ""
+        # 已有缓存：始终注入（闲聊/首轮/新会话都认识你），实质消息再后台刷新
+        if not _is_trivial_for_recall(query):
+            _spawn_bg(self._refresh_recall_bg(user_id, query))
+        return cached
+
+    async def _refresh_recall_bg(self, user_id: uuid.UUID, query: str) -> None:
+        """后台用独立 session 重算召回，更新用户级缓存供后续轮使用。"""
+        try:
+            async with SessionLocal() as session:
+                text = await self._recall_memory(user_id, query, session=session)
+            _recall_cache_set(str(user_id), text or "")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("后台主动召回刷新失败（忽略）: user=%s err=%s", user_id, e)
 
     @staticmethod
     def _compose_system_prompt(persona, skill) -> str:
@@ -572,22 +647,27 @@ class ChatService:
         from app.core.agent.context_hint import current_context_block
 
         async def _assemble_prompt(has_tools: bool) -> str:
-            """组装 system prompt：人设/技能 + 时效引导 + 主动召回 + 跨会话 + 真人模式。"""
+            """组装 system prompt：人设/技能 + 时效引导 + 主动召回 + 跨会话 + 真人模式。
+
+            真人模式把「真人聊天风格」放到**最末尾**：越靠后的指令权重越大，
+            放最后才不会被前面的背景信息块（已知记忆/跨会话/时效引导）冲淡回助手腔。
+            """
+            human = agent is not None and agent.human_mode
             sp = (
                 base_prompt + "\n\n" + current_context_block(with_tool_hint=has_tools)
             ).strip()
-            if agent is not None and agent.human_mode:
-                from app.core.agent.prompt_renderer import render_agent_prompt
-
-                sp = (sp + "\n\n" + render_agent_prompt("human_style.jinja2")).strip()
             if agent is None or agent.enable_active_recall:
-                recall = await self._recall_memory(user_id, user_text)
+                recall = await self._recall_lagged(user_id, user_text)
                 if recall:
                     sp = (sp + "\n\n" + recall).strip()
             if agent is not None and agent.enable_cross_session:
                 cross = await self._cross_session_context(user_id, conv.id)
                 if cross:
                     sp = (sp + "\n\n" + cross).strip()
+            if human:
+                from app.core.agent.prompt_renderer import render_agent_prompt
+
+                sp = (sp + "\n\n" + render_agent_prompt("human_style.jinja2")).strip()
             return sp
 
         history = await self._history_messages(conv.id)

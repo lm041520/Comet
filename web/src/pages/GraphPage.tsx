@@ -52,7 +52,21 @@ function kindOf(n: GraphNode): Kind {
   return n.kind && KIND_META[n.kind] ? (n.kind as Kind) : 'Entity'
 }
 
+function useIsMobile() {
+  const [m, setM] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const h = (e: MediaQueryListEvent) => setM(e.matches)
+    mq.addEventListener('change', h)
+    return () => mq.removeEventListener('change', h)
+  }, [])
+  return m
+}
+
 export default function GraphPage() {
+  const isMobile = useIsMobile()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<GraphData | null>(null)
   const [selected, setSelected] = useState<GraphNode | null>(null)
@@ -197,15 +211,16 @@ export default function GraphPage() {
 
   const nodeRadius = useCallback(
     (n: FGNode) => {
+      const k = isMobile ? 1.5 : 1 // 手机端整体放大，便于点按
       const kind = kindOf(n)
       if (kind === 'Entity') {
         const imp = typeof n.importance === 'number' ? n.importance : 0.5
-        return Math.min(10, Math.max(3, 3 + (n.deg / maxDeg) * 6 + imp * 1.5))
+        return (Math.min(10, Math.max(3, 3 + (n.deg / maxDeg) * 6 + imp * 1.5))) * k
       }
-      if (kind === 'Event') return 4.5
-      return 3.5
+      if (kind === 'Event') return 4.5 * k
+      return 3.5 * k
     },
-    [maxDeg],
+    [maxDeg, isMobile],
   )
 
   // 配置力的强度：加大斥力 + 拉长连线，让节点散开不重叠
@@ -243,9 +258,9 @@ export default function GraphPage() {
 
   const onNodeClick = useCallback(
     (node: FGNode) => {
+      // 只展开关联 + 出详情，不移动/居中视图（避免每次点击图都跳）
       expand(node.id)
       if (kindOf(node) === 'Entity') setSelected(node)
-      fgRef.current?.centerAt(node.x, node.y, 500)
     },
     [expand],
   )
@@ -328,14 +343,14 @@ export default function GraphPage() {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Card
-        title="知识图谱"
+        title={isMobile ? undefined : '知识图谱'}
         extra={
-          <Space wrap>
+          <Space wrap size={isMobile ? 4 : 8} style={isMobile ? { width: '100%' } : undefined}>
             <Input.Search
               placeholder="搜索实体定位"
               allowClear
               size="small"
-              style={{ width: 180 }}
+              style={{ width: isMobile ? 130 : 180 }}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onSearch={doSearch}
@@ -345,7 +360,7 @@ export default function GraphPage() {
               icon={<AimOutlined />}
               onClick={() => fgRef.current?.zoomToFit(500, 60)}
             >
-              居中
+              {isMobile ? '' : '居中'}
             </Button>
             <Button
               size="small"
@@ -353,14 +368,19 @@ export default function GraphPage() {
               loading={merging}
               onClick={onMergeDuplicates}
             >
-              合并重复
+              {isMobile ? '' : '合并重复'}
             </Button>
-            <Button size="small" icon={<ReloadOutlined />} onClick={resetView} disabled={loading}>
-              重置视图
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={resetView}
+              disabled={loading}
+            >
+              {isMobile ? '' : '重置视图'}
             </Button>
           </Space>
         }
-        styles={{ body: { padding: 0, height: 'calc(100% - 57px)' } }}
+        styles={{ body: { padding: 0, height: isMobile ? 'calc(100% - 52px)' : 'calc(100% - 57px)' } }}
         style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
       >
         <div
@@ -438,7 +458,8 @@ export default function GraphPage() {
                   const n = node as FGNode
                   ctx.fillStyle = color
                   ctx.beginPath()
-                  ctx.arc(n.x!, n.y!, nodeRadius(n) + 2, 0, 2 * Math.PI)
+                  // 手机端加大点按热区，手指更好点中
+                  ctx.arc(n.x!, n.y!, nodeRadius(n) + (isMobile ? 6 : 2), 0, 2 * Math.PI)
                   ctx.fill()
                 }}
               />
@@ -479,7 +500,7 @@ export default function GraphPage() {
               </div>
 
               {selected && (
-                <div style={detailPanel}>
+                <div style={isMobile ? detailSheetMobile : detailPanel}>
                   <Text strong style={{ fontSize: 16 }}>
                     {selected.name}
                   </Text>
@@ -531,11 +552,13 @@ export default function GraphPage() {
                 </div>
               )}
 
-              <div style={hintBox}>
+              <div style={isMobile ? { ...hintBox, ...hintBoxMobile } : hintBox}>
                 共 {data.nodes.length} 节点 · {data.edges.length} 关系，当前展开{' '}
                 {graphData.nodes.length} 个
                 <br />
-                点节点展开它的关联 · 拖动可固定 · 滚轮缩放 · 搜索定位 · 下方圆点筛类型
+                {isMobile
+                  ? '点节点展开关联 · 双指缩放 · 拖动整理 · 下方筛类型'
+                  : '点节点展开它的关联 · 拖动可固定 · 滚轮缩放 · 搜索定位 · 下方圆点筛类型'}
               </div>
             </>
           )}
@@ -578,6 +601,21 @@ const detailPanel: React.CSSProperties = {
   padding: 16,
 }
 
+// 手机端：详情改为顶部抽屉式卡片（不挡底部的类型筛选条）
+const detailSheetMobile: React.CSSProperties = {
+  position: 'absolute',
+  left: 0,
+  right: 0,
+  top: 0,
+  background: '#fff',
+  borderRadius: '0 0 16px 16px',
+  boxShadow: '0 6px 20px rgba(0,0,0,0.12)',
+  padding: 16,
+  maxHeight: '52%',
+  overflowY: 'auto',
+  zIndex: 5,
+}
+
 const hintBox: React.CSSProperties = {
   position: 'absolute',
   left: 16,
@@ -589,4 +627,14 @@ const hintBox: React.CSSProperties = {
   color: '#667085',
   pointerEvents: 'none',
   maxWidth: '60%',
+}
+
+// 手机端提示：更窄、字更小、贴边，少占空间
+const hintBoxMobile: React.CSSProperties = {
+  left: 8,
+  top: 8,
+  padding: '5px 8px',
+  fontSize: 11,
+  maxWidth: '92%',
+  lineHeight: 1.5,
 }

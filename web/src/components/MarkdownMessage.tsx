@@ -118,6 +118,13 @@ export default function MarkdownMessage({ content }: { content: string }) {
           },
           // react-markdown 默认会把代码块包一层 pre，这里用 CodeBlock 自带 pre，故 pre 直接透传
           pre: (props) => <>{props.children}</>,
+          // 表格包一层可横向滚动容器：列多/内容长时（尤其手机端）横向滑动查看，
+          // 避免被窄屏压成「每个字一行」。
+          table: (props) => (
+            <div className="md-table-wrap">
+              <table {...props} />
+            </div>
+          ),
         }}
       >
         {content}

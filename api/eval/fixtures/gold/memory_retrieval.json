@@ -1,0 +1,21 @@
+[
+  { "question": "用户是做什么工作的？", "relevant_entities": ["产品经理", "用户"] },
+  { "question": "用户现在住在哪个城市？", "relevant_entities": ["上海", "用户"] },
+  { "question": "用户住在上海哪个区？", "relevant_entities": ["徐汇区", "用户"] },
+  { "question": "用户养了什么宠物？", "relevant_entities": ["团子", "用户"] },
+  { "question": "用户的猫叫什么名字？", "relevant_entities": ["团子", "用户"] },
+  { "question": "用户周末喜欢做什么？", "relevant_entities": ["爬山", "用户"] },
+  { "question": "用户在学什么外语？", "relevant_entities": ["日语", "用户"] },
+  { "question": "用户去哪里旅行过？", "relevant_entities": ["京都", "用户"] },
+  { "question": "用户用什么相机拍照？", "relevant_entities": ["索尼相机", "用户"] },
+  { "question": "用户用什么牌子的手机？", "relevant_entities": ["iPhone", "用户"] },
+  { "question": "用户喜欢喝什么咖啡？", "relevant_entities": ["拿铁", "用户"] },
+  { "question": "用户爱吃什么？", "relevant_entities": ["火锅", "用户"] },
+  { "question": "用户用什么工具记笔记？", "relevant_entities": ["Notion", "用户"] },
+  { "question": "用户最好的朋友是谁？", "relevant_entities": ["王磊", "用户"] },
+  { "question": "用户的妹妹是谁？", "relevant_entities": ["林晓", "用户"] },
+  { "question": "用户的妹妹住在哪里？", "relevant_entities": ["林晓", "成都"] },
+  { "question": "用户在哪所大学读书？", "relevant_entities": ["复旦大学", "用户"] },
+  { "question": "用户的老家在哪？", "relevant_entities": ["成都", "用户"] },
+  { "question": "用户有没有摄影的爱好？", "relevant_entities": ["摄影", "用户"] }
+]

@@ -92,6 +92,27 @@ body {
   margin: 12px 0;
   width: 100%;
 }
+/* 表格横向滚动容器：内容超宽时在容器内横向滑动，不挤压单元格 */
+.md-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 12px 0;
+}
+.md-table-wrap table {
+  margin: 0;
+  /* 按内容自然展开，不被窄屏压缩；超出部分横向滚动 */
+  width: auto;
+  min-width: 100%;
+}
+/* 单元格：给最小宽避免被压成「每字一行」，给最大宽避免单列过宽，超长内容正常换行 */
+.md-table-wrap th,
+.md-table-wrap td {
+  min-width: 64px;
+  max-width: 260px;
+  white-space: normal;
+  word-break: break-word;
+}
 .markdown-body th,
 .markdown-body td {
   border: 1px solid #e4e7ec;
@@ -5318,6 +5339,14 @@ body {
   body.printing #print-root img {
     max-width: 100%;
   }
+  /* 打印时表格滚动容器不裁剪，完整展开 */
+  body.printing #print-root .md-table-wrap {
+    overflow: visible;
+  }
+  body.printing #print-root .md-table-wrap th,
+  body.printing #print-root .md-table-wrap td {
+    max-width: none;
+  }
   body.printing #print-root pre,
   body.printing #print-root table {
     page-break-inside: avoid;
@@ -5383,5 +5412,38 @@ body {
   30% {
     transform: translateY(-4px);
     opacity: 1;
+  }
+}
+
+/* 定时任务卡片：桌面横排（标题左 + 操作右），手机竖排堆叠 */
+.agent-task-card-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.agent-task-main {
+  min-width: 0;
+  flex: 1;
+}
+.agent-task-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+@media (max-width: 768px) {
+  /* 手机端：标题占满整行（不再被操作区挤成竖排单字），操作区移到下方一整行 */
+  .agent-task-card-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .agent-task-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  /* 开关靠左，其余按钮自然排列、可换行 */
+  .agent-task-actions > .ant-switch {
+    margin-right: 4px;
   }
 }

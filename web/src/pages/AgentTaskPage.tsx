@@ -233,8 +233,8 @@ export default function AgentTaskPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {tasks.map((t) => (
           <Card key={t.id} styles={{ body: { padding: 16 } }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-              <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="agent-task-card-row">
+              <div className="agent-task-main">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 600, fontSize: 15 }}>{t.name}</span>
                   <Tag icon={<ClockCircleOutlined />} color="blue">{triggerText(t)}</Tag>
@@ -256,7 +256,7 @@ export default function AgentTaskPage() {
                   {t.last_run_at && ` · 上次：${dayjs(t.last_run_at).format('MM-DD HH:mm')}`}
                 </Typography.Text>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div className="agent-task-actions">
                 <Switch
                   size="small"
                   checked={t.enabled}

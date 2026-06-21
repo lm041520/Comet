@@ -9,3 +9,5 @@ storage/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+# 评测脚本与数据集：进 git/开源，但不进生产镜像
+eval/

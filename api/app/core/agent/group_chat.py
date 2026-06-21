@@ -117,6 +117,7 @@ def build_speaker_messages(
         self_name=self_name,
         member_names="、".join(member_names),
         transcript=transcript or "（暂无历史）",
+        human_mode=human_mode,
     )
     # 注入当前日期，让角色知道"今天"是哪天（开工具时对时效问题才会联网）
     from app.core.agent.context_hint import current_context_block

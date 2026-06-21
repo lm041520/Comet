@@ -36,7 +36,11 @@
 实体抽取总规则：
 - 不要把完整命题、因果链、价值判断、口号式表达拆成多个低价值实体（如"努力就会有回报"不应抽出"努力""回报"）。
 - 普通时间表达（日期、明天、今晚八点）、一次性动作短语、情绪/心理状态（紧张、开心）默认不作为独立实体。
-- 实体 `name` 要尽量具体，避免同名同类型误合并；用户拥有/关联的实体用完整所有格或稳定限定（如「用户的小狗」「用户的GitHub账号」），不要简化成「小狗」「账号」。
+- 实体 `name` 命名优先级（重要）：
+  ① **原文有专有名词/具体名称（人名、地名、机构、品牌、产品、宠物名等）时必须用专名原形**——如「复旦大学」「成都」「团子」「京都」「索尼相机」，**不要**替换成「用户的大学」「用户老家」「用户的猫」这类泛指描述；
+  ② 没有专名但有稳定关系时，才用稳定语义限定补全（如「用户就职的公司」「用户的手机」），不要只写裸泛称「公司」「手机」；
+  ③ 用户本人节点固定命名「用户」；地名可带上位限定使其更完整（如「上海徐汇区」）。
+- 若原文同时给出专名和泛称（如"我养的布偶猫叫团子"→ 猫即团子），以**专名**作实体 name（团子），归属关系用三元组表达（用户-拥有-团子），不要再单独建「用户的布偶猫」实体。
 - 若有值得保留的实体但无有效关系，可只返回 entities，triplets 设为 []。
 
 ===预定义关系谓词===
@@ -86,6 +90,32 @@
     {"entity_idx": 0, "name": "用户", "type": "生命体", "description": "认为努力就会有回报的用户"}
   ],
   "triplets": []
+}
+
+陈述："用户养的布偶猫叫团子。"（演示：原文给了专名「团子」，实体 name 用专名，不要用「用户的布偶猫」）
+输出：
+{
+  "entities": [
+    {"entity_idx": 0, "name": "用户", "type": "生命体", "description": "养了布偶猫团子的用户"},
+    {"entity_idx": 1, "name": "团子", "type": "生命体", "description": "用户养的布偶猫"}
+  ],
+  "triplets": [
+    {"subject_name": "用户", "subject_id": 0, "predicate": "拥有", "predicate_surface": "养的", "object_name": "团子", "object_id": 1, "value": null, "valid_at": "NULL", "invalid_at": "NULL"}
+  ]
+}
+
+陈述："用户在复旦大学读新闻系，老家在成都。"（演示：专名「复旦大学」「成都」直接作 name，不要用「用户的大学」「用户老家」）
+输出：
+{
+  "entities": [
+    {"entity_idx": 0, "name": "用户", "type": "生命体", "description": "复旦大学新闻系、老家成都的用户"},
+    {"entity_idx": 1, "name": "复旦大学", "type": "组织", "description": "用户就读的大学"},
+    {"entity_idx": 2, "name": "成都", "type": "地点设施", "description": "用户的老家"}
+  ],
+  "triplets": [
+    {"subject_name": "用户", "subject_id": 0, "predicate": "属于类型", "predicate_surface": "读", "object_name": "复旦大学", "object_id": 1, "value": null, "valid_at": "NULL", "invalid_at": "NULL"},
+    {"subject_name": "用户", "subject_id": 0, "predicate": "位于", "predicate_surface": "老家在", "object_name": "成都", "object_id": 2, "value": null, "valid_at": "NULL", "invalid_at": "NULL"}
+  ]
 }
 
 ===事件抽取===
