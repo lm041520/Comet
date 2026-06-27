@@ -13,8 +13,9 @@ from typing import TypedDict
 
 from eval.benchmarks._common import cache_path
 
-# HuggingFace 上的数据集 id
-_HF_REPO = "C-MTEB/T2Retrieval"
+# HuggingFace 上的数据集 id(MMTEB 统一迁移到 `mteb/` 组织下,旧路径 `C-MTEB/T2Retrieval`
+# 只剩 default config,新路径保留完整三 subset 结构 corpus/queries/default)
+_HF_REPO = "mteb/T2Retrieval"
 
 
 class CMTEBQuery(TypedDict):

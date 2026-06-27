@@ -162,6 +162,18 @@ class Settings(BaseSettings):
     # 最大迭代轮数(N 轮不通过即 ForceExceed 标 unverified 仍展示)
     loop_max_iterations: int = 2
 
+    # ── V0.0.5 ③ Agent Tracing(全链路可观测)──
+    # 总开关:关闭后所有 tracer.span() 转空操作,零开销
+    tracing_enabled: bool = True
+    # 采样率(0~1):默认全采;高流量场景可降采样(本项目流量小,默认 1.0)
+    tracing_sample_rate: float = 1.0
+    # span 落库批量大小(累积到这么多条触发一次批量 insert,降低 DB 压力)
+    tracing_batch_size: int = 20
+    # span 落库 flush 间隔(秒):即使未到 batch_size,也强制定期刷新避免数据滞留
+    tracing_flush_interval: float = 2.0
+    # 内存队列上限(达到上限丢弃最旧 span 并 warning,保护进程内存)
+    tracing_queue_maxsize: int = 5000
+
     @property
     def database_url(self) -> str:
         return (

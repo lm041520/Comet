@@ -4,7 +4,7 @@
 
 ## 数据来源
 
-- **HuggingFace 数据集**: [`C-MTEB/T2Retrieval`](https://huggingface.co/datasets/C-MTEB/T2Retrieval)
+- **HuggingFace 数据集**: [`mteb/T2Retrieval`](https://huggingface.co/datasets/mteb/T2Retrieval)(MMTEB 统一迁移后的新路径,原 `C-MTEB/T2Retrieval` 已只剩 default config)
 - **License**: 见数据集仓库 README（用于学术与研究目的）
 - 首次运行会通过 `datasets.load_dataset(...)` 下载并缓存到 `api/eval/cache/hf_datasets/`，后续离线可用
 

@@ -38,8 +38,20 @@ async def lifespan(_: FastAPI):
         await ensure_graph_schema()
     except Exception as e:
         logger.warning("记忆图谱 schema 初始化失败（稍后可重试）: %s", e)
+    # 启动:Agent Tracing 异步落库器(V0.0.5 ③)
+    from app.core.agent.tracing.span_recorder import get_recorder
+
+    try:
+        await get_recorder().start()
+    except Exception as e:
+        logger.warning("Tracing 落库器启动失败（稍后可重试）: %s", e)
     logger.info("%s 启动完成", settings.app_name)
     yield
+    # 关闭:先停 Tracing 落库器,把残留 span 排空
+    try:
+        await get_recorder().stop()
+    except Exception as e:
+        logger.warning("Tracing 落库器关闭异常: %s", e)
     # 关闭：释放长连接 / 连接池
     await postgres.close()
     await elastic.close()
