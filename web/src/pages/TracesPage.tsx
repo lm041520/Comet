@@ -365,24 +365,28 @@ export default function TracesPage() {
         onClose={closeDetail}
         title={
           detail ? (
-            <Space size={8} wrap style={{ maxWidth: '100%' }}>
-              <Tag color={TASK_TYPE_COLORS[detail.task_type] || 'default'} style={{ marginInlineEnd: 0 }}>
-                {TASK_TYPE_LABELS[detail.task_type] || detail.task_type}
-              </Tag>
-              <span
+            <div style={{ minWidth: 0, width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                <Tag color={TASK_TYPE_COLORS[detail.task_type] || 'default'} style={{ marginInlineEnd: 0 }}>
+                  {TASK_TYPE_LABELS[detail.task_type] || detail.task_type}
+                </Tag>
+                {detail.status === 'error' && <Tag color="error">失败</Tag>}
+                {detail.status === 'running' && <Tag color="processing">运行中</Tag>}
+              </div>
+              <div
                 style={{
-                  maxWidth: isMobile ? '60vw' : 360,
+                  width: '100%',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
-                  fontSize: isMobile ? 15 : undefined,
+                  fontSize: isMobile ? 14 : 16,
+                  fontWeight: 600,
                 }}
+                title={detail.task_name || ''}
               >
                 {detail.task_name || `Trace ${detail.trace_id.slice(0, 8)}`}
-              </span>
-              {detail.status === 'error' && <Tag color="error">失败</Tag>}
-              {detail.status === 'running' && <Tag color="processing">运行中</Tag>}
-            </Space>
+              </div>
+            </div>
           ) : (
             '执行轨迹'
           )

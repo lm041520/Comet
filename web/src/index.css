@@ -5469,3 +5469,14 @@ body {
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+
+/* Drawer 标题区:flex item 默认 min-width:auto 会被长标题撑开导致溢出。
+   设 min-width:0 + overflow:hidden,让标题内的 ellipsis 真正生效(尤其手机端)。 */
+.ant-drawer-title {
+  min-width: 0;
+  overflow: hidden;
+}
+.ant-drawer-header-title {
+  min-width: 0;
+}

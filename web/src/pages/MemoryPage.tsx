@@ -324,7 +324,7 @@ function ProfilePanel() {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(16rem, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(16rem, 100%), 1fr))',
                   gap: 12,
                   marginBottom: 8,
                 }}
@@ -796,7 +796,7 @@ function CommunityPanel() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(20rem, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(20rem, 100%), 1fr))',
             gap: 14,
           }}
         >
@@ -812,6 +812,7 @@ function CommunityPanel() {
                   borderRadius: 12,
                   padding: '16px 18px',
                   cursor: 'pointer',
+                  minWidth: 0,
                   transition:
                     'transform 0.18s, box-shadow 0.18s, border-color 0.18s',
                 }}
