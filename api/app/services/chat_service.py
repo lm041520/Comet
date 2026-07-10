@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.agent.orchestrator import run_function_calling, run_react
 from app.core.agent.tools import build_enabled_tools
-from app.core.agent.tracing import get_tracer
+from app.core.agent.tracing import get_tracer, push_llm_usage
 from app.core.realtime import bus
 from app.core.llm.chat_model import (
     build_chat_model,
@@ -708,15 +708,22 @@ class ChatService:
         )
         system_prompt = await _assemble_prompt(has_tools=bool(tools))
         if not tools:
-            # 无工具：纯流式
+            # 无工具：纯流式（仍包一层 llm_call span，保证「执行轨迹」有内容：模型/耗时/token）
             lc_messages: list = []
             if system_prompt:
                 lc_messages.append(SystemMessage(content=system_prompt))
             lc_messages.extend(history)
             lc_messages.append(HumanMessage(content=composed_text))
-            async for chunk in model.astream(lc_messages):
-                if chunk.content:
-                    yield {"type": "token", "text": chunk.content}
+            tracer = get_tracer()
+            async with tracer.llm_span(
+                f"对话:{config.model_name}", model_name=config.model_name
+            ):
+                agg = None
+                async for chunk in model.astream(lc_messages):
+                    agg = chunk if agg is None else agg + chunk
+                    if chunk.content:
+                        yield {"type": "token", "text": chunk.content}
+                push_llm_usage(agg, model)  # 有 usage_metadata 则记 token/成本，无则仅记耗时
         elif supports_function_call(config):
             # 强模型：原生 function calling
             lc_messages = []
@@ -813,10 +820,18 @@ class ChatService:
         messages.extend(history)
         messages.append(HumanMessage(content=content_parts))
 
-        async for chunk in model.astream(messages):
-            if chunk.content:
-                text = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
-                yield text
+        # 包一层 llm_call span：多模态看图这轮也能在「执行轨迹」看到模型/耗时/token
+        tracer = get_tracer()
+        async with tracer.llm_span(
+            f"多模态:{config.model_name}", model_name=config.model_name
+        ):
+            agg = None
+            async for chunk in model.astream(messages):
+                agg = chunk if agg is None else agg + chunk
+                if chunk.content:
+                    text = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
+                    yield text
+            push_llm_usage(agg, model)
 
     async def _dispatch_memory(self, user_id: uuid.UUID, user_text: str) -> None:
         """把本轮用户表达落 memories(source=auto) 并派发萃取任务。失败不影响问答。"""
