@@ -1,0 +1,7 @@
+[
+  {
+    "query": "示例问题：费用总额是多少？",
+    "expected_source_id": "替换为实际文档 UUID",
+    "expected_page": 3
+  }
+]

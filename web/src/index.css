@@ -1154,6 +1154,109 @@ body {
   font-size: 14px;
 }
 
+/* 知识库检索验证 */
+.retrieval-validation-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.retrieval-validation-empty {
+  padding: 56px 0;
+}
+.retrieval-validation-results {
+  display: grid;
+  gap: 14px;
+}
+.retrieval-validation-summary {
+  padding: 10px 12px;
+  border: 1px solid #eaecf0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.retrieval-validation-card {
+  border-radius: 12px;
+}
+.retrieval-heading-path {
+  margin-top: 12px;
+  color: #667085;
+  font-size: 13px;
+}
+.retrieval-validation-collapse {
+  margin-top: 14px;
+}
+.retrieval-content {
+  color: #344054;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.retrieval-block-list {
+  display: grid;
+  gap: 10px;
+}
+.retrieval-block-item {
+  padding: 10px 12px;
+  border: 1px solid #eaecf0;
+  border-radius: 8px;
+  background: #fff;
+}
+.retrieval-block-item .retrieval-content {
+  margin-top: 8px;
+}
+
+/* 文档原文件预览 */
+.document-text-preview {
+  min-height: 120px;
+  max-height: 64vh;
+  padding: 4px 4px 0;
+  overflow-y: auto;
+}
+.document-pdf-preview {
+  min-height: 68vh;
+  overflow: hidden;
+  border: 1px solid #eaecf0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.document-pdf-preview > .ant-spin-nested-loading,
+.document-pdf-preview .ant-spin-container {
+  min-height: 68vh;
+}
+.document-pdf-frame {
+  display: block;
+  width: 100%;
+  height: 68vh;
+  border: 0;
+  background: #fff;
+}
+
+@media (max-width: 768px) {
+  .retrieval-validation-toolbar {
+    grid-template-columns: 1fr;
+  }
+  .retrieval-validation-toolbar > .ant-space {
+    justify-content: flex-end;
+  }
+  .retrieval-validation-card .ant-card-head,
+  .retrieval-validation-card .ant-card-body {
+    padding-inline: 12px;
+  }
+  .document-preview-modal {
+    max-width: calc(100vw - 16px);
+    margin: 8px auto;
+  }
+  .document-preview-modal .ant-modal-body,
+  .document-pdf-preview,
+  .document-pdf-preview > .ant-spin-nested-loading,
+  .document-pdf-preview .ant-spin-container,
+  .document-pdf-frame {
+    min-height: 72vh;
+    height: 72vh;
+  }
+}
+
 
 /* ── 对话页：精致化 ── */
 .chat-sidebar {

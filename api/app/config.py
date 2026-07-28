@@ -80,6 +80,12 @@ class Settings(BaseSettings):
 
     # 知识库 RAG
     embedding_dims: int = 1024  # 向量维度，ES 索引与 embed 调用统一用此值
+    rag_docling_enabled: bool = True
+    rag_docling_do_ocr: bool = True
+    rag_docling_max_pages: int = 100
+    rag_docling_max_file_size: int = 50 * 1024 * 1024
+    rag_docling_cache_dir: str = "./storage/docling-models"
+    rag_parse_time_limit_seconds: int = 900
 
     # 全局搜索语义门控（精确导向）：只展示余弦相似度 ≥ 阈值的结果，没有就不展示
     # 阈值为真实余弦相似度（-1~1），按实测可调；偏高更精准、偏低召回更多

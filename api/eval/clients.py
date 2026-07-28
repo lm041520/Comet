@@ -1,9 +1,9 @@
 """存储客户端访问 + ES 检索变体（文档粒度，返回排序后的 source_id）。
 
-检索变体逻辑参照 app/core/rag/search.py，便于做「纯向量/纯BM25/混合/+rerank」四配置对比；
+检索变体逻辑参照 app/core/rag/retrieval/search.py，便于做「纯向量/纯BM25/混合/+rerank」四配置对比；
 embed_client / rerank_client 由调用方注入（来自 eval_config，不读 app 用户配置）。
 """
-from app.core.rag.es_index import CHUNK_TYPE_CHILD, CHUNKS_INDEX
+from app.core.rag.indexing import CHUNK_TYPE_CHILD, CHUNKS_INDEX
 from app.db.elastic import close as _es_close
 from app.db.elastic import get_es
 from app.db.neo4j import close as _neo_close

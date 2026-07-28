@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BizError
 from app.core.logging import get_logger
-from app.core.rag.es_store import delete_by_source
-from app.core.rag.search import hybrid_search
+from app.core.rag.indexing.es_store import delete_by_source
+from app.core.rag.retrieval import hybrid_search
 from app.core.storage import build_file_key, get_storage
 from app.models.image_model import IMG_STATUS_PENDING, Image
 from app.repositories.image_repository import ImageRepository
@@ -148,7 +148,7 @@ class ImageService:
         self, user_id: uuid.UUID, image_id: uuid.UUID, kb_id: uuid.UUID
     ) -> Image:
         """把图片移动到另一个知识库，并同步回写 ES chunk 的 kb_id。"""
-        from app.core.rag.es_store import update_kb_by_source
+        from app.core.rag.indexing.es_store import update_kb_by_source
 
         img = await self._get_or_404(user_id, image_id)
         kb = await self.kb_repo.get(user_id, kb_id)

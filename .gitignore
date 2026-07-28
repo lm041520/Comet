@@ -1,5 +1,5 @@
 # ===== 参考项目（只读，不提交） =====
-MemoryBear/
+otherfiles/
 
 # ===== 项目文档（不提交，仅本地参考） =====
 files/
@@ -8,6 +8,7 @@ files/
 .vscode/
 .idea/
 .kiro/
+AGENT.md
 
 # ===== 环境变量与密钥 =====
 .env
@@ -46,6 +47,10 @@ dist-ssr/
 .vite/
 coverage/
 .vscode/
+# ===== 模型缓存（运行时下载，不进 git） =====
+api/storage/docling-models/
+storage/docling-models/
+
 # ===== 构建产物 =====
 *.log
 logs/
@@ -59,5 +64,7 @@ api/celerybeat-schedule.bak
 # ===== 评测（eval）=====
 api/eval/results/
 api/eval/cache/
+
 # 评测脚本与 fixtures 进 git，密钥文件不进、模板要进
 !.env.eval.example
+tests/

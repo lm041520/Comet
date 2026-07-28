@@ -15,7 +15,7 @@ from sqlalchemy import select, update
 
 import app.models  # noqa: F401  注册全部 ORM
 from app.core.logging import get_logger
-from app.core.rag.es_store import backfill_kb_id
+from app.core.rag.indexing.es_store import backfill_kb_id
 from app.db import elastic
 from app.db.postgres import create_task_engine
 from app.models.document_model import Document

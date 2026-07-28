@@ -2,13 +2,18 @@
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user
 from app.core.response import success
 from app.db.postgres import get_session
 from app.models.user_model import User
-from app.schemas.document_schema import SearchRequest, UrlImportRequest
+from app.schemas.document_schema import (
+    RetrievalValidationRequest,
+    SearchRequest,
+    UrlImportRequest,
+)
 from app.schemas.knowledge_base_schema import MoveToKbRequest
 from app.services.document_service import DocumentService
 
@@ -73,9 +78,24 @@ async def preview_document(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """读取文档原文内容供查看（md 渲染 / 其余纯文本，超长截断）。"""
+    """获取原文件预览；PDF 返回鉴权预览地址，文本格式返回正文。"""
     data = await DocumentService(session).preview(user.id, doc_id)
     return success(data)
+
+
+@router.get("/{doc_id}/preview-file")
+async def preview_document_file(
+    doc_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """返回 PDF 原始字节，由浏览器内置 PDF Viewer 显示。"""
+    _doc, content = await DocumentService(session).get_preview_file(user.id, doc_id)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline"},
+    )
 
 
 @router.get("/{doc_id}/status")
@@ -94,11 +114,12 @@ async def get_status(
 @router.post("/{doc_id}/retry")
 async def retry_document(
     doc_id: uuid.UUID,
+    parser: str = Query(default="auto", description="auto/plain/pymupdf/docling"),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     service = DocumentService(session)
-    doc = await service.retry(user.id, doc_id)
+    doc = await service.retry(user.id, doc_id, parser)
     return success(await service.to_out_dict(doc), "已重新提交解析")
 
 
@@ -119,9 +140,24 @@ async def search_documents(
     session: AsyncSession = Depends(get_session),
 ):
     hits = await DocumentService(session).search(
-        user.id, body.query, body.top_k, body.tags
+        user.id, body.query, body.top_k, body.tags, body.kb_id
     )
     return success(hits)
+
+
+@router.post("/retrieval-validation")
+async def validate_retrieval(
+    body: RetrievalValidationRequest,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    data = await DocumentService(session).validate_retrieval(
+        user.id,
+        body.kb_id,
+        body.query,
+        body.top_k,
+    )
+    return success(data)
 
 
 @router.put("/{doc_id}/move")

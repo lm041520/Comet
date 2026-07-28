@@ -2,7 +2,7 @@
 
 只删评测命名空间，不碰真实用户。run_extraction 只写 Neo4j（不写 PG memories），故无需清 PG。
 """
-from app.core.rag.es_index import CHUNKS_INDEX
+from app.core.rag.indexing import CHUNKS_INDEX
 from app.db.elastic import get_es
 from app.repositories.neo4j.memory_graph_repository import MemoryGraphRepository
 from eval.eval_config import EVAL_USER_ID

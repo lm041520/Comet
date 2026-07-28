@@ -1,11 +1,12 @@
 """comet_chunks 索引的写入与删除。"""
+
 import uuid
 from datetime import datetime, timezone
 
 from elasticsearch import helpers
 
 from app.core.logging import get_logger
-from app.core.rag.es_index import CHUNKS_INDEX
+from app.core.rag.indexing.es_index import CHUNKS_INDEX
 from app.db.elastic import get_es
 
 logger = get_logger(__name__)
@@ -23,6 +24,13 @@ def build_chunk_doc(
     parent_id: str | None = None,
     tags: list[str] | None = None,
     kb_id: str | None = None,
+    block_ids: list[str] | None = None,
+    block_types: list[str] | None = None,
+    page_start: int | None = None,
+    page_end: int | None = None,
+    heading_path: list[str] | None = None,
+    chunk_index: int = 0,
+    parser_name: str | None = None,
 ) -> dict:
     """构造一条 ES chunk 文档。"""
     chunk_id = uuid.uuid4().hex
@@ -38,6 +46,13 @@ def build_chunk_doc(
             "chunk_id": chunk_id,
             "chunk_type": chunk_type,
             "parent_id": parent_id,
+            "block_ids": block_ids or [],
+            "block_types": block_types or [],
+            "page_start": page_start,
+            "page_end": page_end,
+            "heading_path": heading_path or [],
+            "chunk_index": chunk_index,
+            "parser_name": parser_name,
             "content": content,
             "tags": tags or [],
             "vector": vector,
@@ -79,9 +94,7 @@ async def delete_by_source(user_id: str, source_id: str) -> int:
     return deleted
 
 
-async def update_tags_by_source(
-    user_id: str, source_id: str, tags: list[str]
-) -> None:
+async def update_tags_by_source(user_id: str, source_id: str, tags: list[str]) -> None:
     """更新某来源所有 chunk 的 tags（AI 分类后回写）。"""
     es = get_es()
     await es.update_by_query(

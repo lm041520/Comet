@@ -19,7 +19,7 @@ async def _build(ctx: ToolBuildContext) -> StructuredTool:
     kb_ids = ctx.kb_ids
 
     async def _run(query: str) -> str:
-        from app.core.rag.search import hybrid_search
+        from app.core.rag.retrieval import hybrid_search
 
         hits = await hybrid_search(session, user_id, query, top_k=5, kb_ids=kb_ids)
         # 统计：命中条数 + 涉及文档数（按 doc_name 去重；无名时按 source_id）

@@ -48,5 +48,6 @@ class OssStorage(StorageBackend):
         return await asyncio.to_thread(self.bucket.object_exists, file_key)
 
     def get_url(self, file_key: str, expires: int = 3600) -> str:
-        # 生成带签名的临时访问 URL
+        # OSS 禁止在 GET 请求中通过 response-content-type 覆盖响应头。
+        # 对象上传时已经保存正确的 Content-Type，签名 URL 保持最小参数即可。
         return self.bucket.sign_url("GET", file_key, expires)

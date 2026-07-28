@@ -203,6 +203,9 @@ Comet 不在 `.env` 里写任何 LLM 的 API Key。**所有模型与其 API Key 
 | `STORAGE_BACKEND` | 文件存储后端 | `local`（默认）或 `oss` |
 | `OSS_*` | 阿里云 OSS 配置 | `STORAGE_BACKEND=oss` 时填 |
 | `EMBEDDING_DIMS` | 向量维度 | 固定 `1024`，需与 Embedding 模型一致 |
+| `RAG_DOCLING_ENABLED` | 是否启用复杂 PDF 的 Docling 路由 | 默认 `true`，普通 PDF 仍走 PyMuPDF |
+| `RAG_DOCLING_DO_OCR` | Docling 是否启用 RapidOCR | 默认 `true`，固定使用 ONNXRuntime |
+| `RAG_DOCLING_CACHE_DIR` | Docling 离线模型目录 | 本地默认 `./storage/docling-models`；容器内 `/app/storage/docling-models` |
 | `DB_POOL_*` / `ES_MAX_*` / `NEO4J_MAX_POOL_SIZE` | 各存储连接池 | 一般不用动 |
 
 生成 `FERNET_KEY`：
@@ -238,6 +241,24 @@ uv run python run.py
 - `GET http://localhost:8000/api/health` → 四存储连通状态
 
 代码自检：`uv run ruff check .`
+
+### Docling 离线模型
+
+Docling 模型约 564 MB，其中多个权重文件超过 GitHub 单文件 100 MB 限制，已通过 `.gitignore` 排除，不能随代码仓库发布。首次部署需要在宿主机准备 `api/storage/docling-models`，之后该目录会通过 Compose 挂载到 API 与 Worker，`git pull`、重建镜像和重启容器不会删除它。
+
+服务器能访问 Hugging Face 时，可在项目根目录执行一次：
+
+```bash
+docker compose run --rm worker docling-tools models download \
+  layout tableformer rapidocr \
+  -o /app/storage/docling-models
+```
+
+服务器不能访问 Hugging Face 时，在可联网机器下载后，将完整目录复制到服务器的 `api/storage/docling-models`。不要只复制单个 `model.safetensors`。模型准备完成后重新构建并启动：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build api worker
+```
 
 ---
 

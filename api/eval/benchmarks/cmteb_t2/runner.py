@@ -3,7 +3,7 @@
 设计要点：
 - 用独立命名空间 `EVAL_USER_ID`，corpus 写完跑完可清理；不污染主用户数据。
 - source_id 用 corpus 项的 cid；检索按 source_id 维度算指标，符合 mteb 协议。
-- 复用 `app.core.rag.search` 的混合检索能力，证明的就是它在公共集上的表现。
+- 复用 `app.core.rag.retrieval` 的混合检索能力，证明的就是它在公共集上的表现。
 - 评测 hybrid（向量+BM25 融合）作为默认列；若配了 rerank 则额外出「混合+rerank」列。
 """
 from __future__ import annotations
@@ -11,9 +11,15 @@ from __future__ import annotations
 import asyncio
 import uuid
 
-from app.core.rag.chunker import chunk_parent_child
-from app.core.rag.es_index import CHUNK_TYPE_CHILD, CHUNK_TYPE_PARENT, ensure_index
-from app.core.rag.es_store import build_chunk_doc, bulk_index, delete_by_source
+from app.core.rag.chunking import chunk_parent_child
+from app.core.rag.indexing import (
+    CHUNK_TYPE_CHILD,
+    CHUNK_TYPE_PARENT,
+    build_chunk_doc,
+    bulk_index,
+    delete_by_source,
+    ensure_index,
+)
 
 from eval import clients, metrics
 from eval.benchmarks._common import write_benchmark_details, write_benchmark_report
@@ -77,7 +83,7 @@ async def _ingest_corpus(embed_client, corpus: list[dict]) -> int:
 
 async def _clear_corpus() -> None:
     """清掉本 benchmark 命名空间下的所有 chunk（独立 user_id 不影响 fixtures）。"""
-    from app.core.rag.es_index import CHUNKS_INDEX
+    from app.core.rag.indexing import CHUNKS_INDEX
     from app.db.elastic import get_es
     es = get_es()
     try:

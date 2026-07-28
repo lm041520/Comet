@@ -146,7 +146,7 @@ async def upload_chat_file(
     from pathlib import Path
 
     from app.core.exceptions import BizError
-    from app.core.rag.parser import parse_document
+    from app.core.rag.ingestion import parse_document_structured
 
     # 对话附件文本上限（约覆盖十几页文档前部），超出截断
     max_chars = 10000
@@ -159,7 +159,7 @@ async def upload_chat_file(
 
     content = await file.read()
     try:
-        text = parse_document(ext, content)
+        text = parse_document_structured(ext, content).text
     except BizError:
         raise
     except Exception as e:

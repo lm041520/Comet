@@ -68,6 +68,23 @@ class DocumentRepository:
         )
         return list((await self.session.execute(stmt)).scalars().all())
 
+    async def get_many(
+        self,
+        user_id: uuid.UUID,
+        document_ids: list[uuid.UUID],
+        kb_id: uuid.UUID | None = None,
+    ) -> list[Document]:
+        if not document_ids:
+            return []
+        stmt = select(Document).where(
+            Document.id.in_(document_ids),
+            Document.user_id == user_id,
+        )
+        if kb_id is not None:
+            stmt = stmt.where(Document.kb_id == kb_id)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
     async def save(self, doc: Document) -> Document:
         await self.session.commit()
         await self.session.refresh(doc)

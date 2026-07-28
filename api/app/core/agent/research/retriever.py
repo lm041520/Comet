@@ -266,7 +266,7 @@ async def gather_kb_sources(
     避免「自循环」：自动剔除「深度研究报告」库的命中（那是本系统自己产出的旧报告，
     把它当权威源回灌写作会让模型复读旧结论、丢失时效性）。
     """
-    from app.core.rag.search import hybrid_search
+    from app.core.rag.retrieval import hybrid_search
 
     # 计算"深度研究报告"库的 id，用于剔除自产报告，避免研究→存库→检索→自循环
     excluded_kb_ids: set[str] = set()

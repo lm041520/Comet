@@ -12,8 +12,8 @@ from app.celery_app import celery_app
 from app.core.llm.resolver import get_client_for_type, get_optional_client_for_type
 from app.core.logging import get_logger
 from app.core.rag.classifier import classify_content
-from app.core.rag.es_index import CHUNK_TYPE_IMAGE
-from app.core.rag.es_store import build_chunk_doc, bulk_index, delete_by_source
+from app.core.rag.indexing.es_index import CHUNK_TYPE_IMAGE
+from app.core.rag.indexing.es_store import build_chunk_doc, bulk_index, delete_by_source
 from app.core.rag.image_describe import describe_image
 from app.core.storage import get_storage
 from app.db import elastic

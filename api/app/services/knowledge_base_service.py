@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BizError
 from app.core.logging import get_logger
-from app.core.rag.es_store import delete_by_source
+from app.core.rag.indexing.es_store import delete_by_source
 from app.core.storage import get_storage
 from app.models.knowledge_base_model import KnowledgeBase
 from app.repositories.document_repository import DocumentRepository

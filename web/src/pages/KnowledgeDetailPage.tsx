@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
+  Alert,
   Button,
+  Card,
+  Collapse,
+  Descriptions,
+  Dropdown,
   Empty,
   Input,
+  InputNumber,
   Modal,
   Popconfirm,
   Progress,
@@ -26,10 +32,17 @@ import {
   LoadingOutlined,
   ReloadOutlined,
 } from '@ant-design/icons'
-import { documentApi, type DocumentItem, type DocumentPreview, type SearchHit } from '@/api/documents'
+import {
+  documentApi,
+  type DocumentItem,
+  type DocumentPreview,
+  type RetrievalValidationData,
+  type SearchHit,
+} from '@/api/documents'
 import { imageApi, type ImageItem } from '@/api/images'
 import { knowledgeBaseApi, type KnowledgeBase } from '@/api/knowledgeBases'
 import { AuthenticatedImage } from '@/components/AuthenticatedImage'
+import AuthenticatedFileFrame from '@/components/AuthenticatedFileFrame'
 import MarkdownMessage from '@/components/MarkdownMessage'
 import { FileTypeIcon, StatusTag, formatSize } from './knowledge/helpers'
 
@@ -40,7 +53,7 @@ export default function KnowledgeDetailPage() {
   const { kbId = '' } = useParams()
   const navigate = useNavigate()
   const [kb, setKb] = useState<KnowledgeBase | null>(null)
-  const [tab, setTab] = useState<'doc' | 'image'>('doc')
+  const [tab, setTab] = useState<'doc' | 'image' | 'validation'>('doc')
 
   useEffect(() => {
     if (!kbId) return
@@ -78,10 +91,15 @@ export default function KnowledgeDetailPage() {
 
       <Tabs
         activeKey={tab}
-        onChange={(k) => setTab(k as 'doc' | 'image')}
+        onChange={(k) => setTab(k as 'doc' | 'image' | 'validation')}
         items={[
           { key: 'doc', label: '文档', children: <DocTab kbId={kbId} /> },
           { key: 'image', label: '图片', children: <ImageTab kbId={kbId} /> },
+          {
+            key: 'validation',
+            label: '检索验证',
+            children: <RetrievalValidationTab kbId={kbId} />,
+          },
         ]}
       />
     </div>
@@ -108,6 +126,10 @@ function DocTab({ kbId }: { kbId: string }) {
       id: d.id,
       file_name: d.file_name,
       file_ext: d.file_ext,
+      preview_type: d.file_ext.toLowerCase() === '.pdf' ? 'pdf' : 'text',
+      preview_url: null,
+      download_url: null,
+      expires_in: null,
       is_markdown: false,
       source_url: d.source_url,
       content: '',
@@ -193,10 +215,13 @@ function DocTab({ kbId }: { kbId: string }) {
     }
   }
 
-  const onRetry = async (id: string) => {
+  const onRetry = async (
+    id: string,
+    parser: 'auto' | 'plain' | 'pymupdf' | 'docling' = 'auto',
+  ) => {
     try {
-      await documentApi.retry(id)
-      message.success('已重新提交解析')
+      await documentApi.retry(id, parser)
+      message.success(`已使用 ${parser} 重新提交解析`)
       load()
     } catch (e) {
       message.error((e as Error).message)
@@ -220,7 +245,7 @@ function DocTab({ kbId }: { kbId: string }) {
     }
     setSearching(true)
     try {
-      const { data } = await documentApi.search(q.trim(), 8)
+      const { data } = await documentApi.search(q.trim(), 8, undefined, kbId)
       setHits(data)
     } catch (e) {
       message.error((e as Error).message)
@@ -273,15 +298,24 @@ function DocTab({ kbId }: { kbId: string }) {
             onClick={() => openPreview(d)}
           />
         </Tooltip>
-        {d.status === 'failed' && (
-          <Tooltip title="重新解析">
-            <Button
-              size="small"
-              type="text"
-              icon={<ReloadOutlined />}
-              onClick={() => onRetry(d.id)}
-            />
-          </Tooltip>
+        {d.status !== 'parsing' && (
+          <Dropdown
+            trigger={['click']}
+            menu={{
+              items: [
+                { key: 'auto', label: '自动选择解析器' },
+                { key: 'plain', label: 'Plain（普通文本）' },
+                { key: 'pymupdf', label: 'PyMuPDF（轻量 PDF）' },
+                { key: 'docling', label: 'Docling（复杂 PDF）' },
+              ],
+              onClick: ({ key }) =>
+                onRetry(d.id, key as 'auto' | 'plain' | 'pymupdf' | 'docling'),
+            }}
+          >
+            <Tooltip title="选择解析器并重新解析">
+              <Button size="small" type="text" icon={<ReloadOutlined />} />
+            </Tooltip>
+          </Dropdown>
         )}
         <Popconfirm
           title="删除文档"
@@ -404,8 +438,20 @@ function DocTab({ kbId }: { kbId: string }) {
         }
         open={preview !== null}
         onCancel={() => setPreview(null)}
-        width={860}
+        width={preview?.preview_type === 'pdf' ? 1080 : 860}
+        className="document-preview-modal"
         footer={[
+          preview?.download_url ? (
+            <Button
+              key="open-file"
+              href={preview.download_url}
+              target="_blank"
+              rel="noreferrer"
+              icon={<LinkOutlined />}
+            >
+              下载原文件
+            </Button>
+          ) : null,
           preview?.source_url ? (
             <Button
               key="src"
@@ -424,14 +470,23 @@ function DocTab({ kbId }: { kbId: string }) {
       >
         <Spin spinning={previewLoading}>
           <div
-            style={{
-              maxHeight: '64vh',
-              overflowY: 'auto',
-              padding: '4px 4px 0',
-              minHeight: 120,
-            }}
+            className={
+              preview?.preview_type === 'pdf'
+                ? 'document-pdf-preview'
+                : 'document-text-preview'
+            }
           >
-            {preview && !previewLoading && !preview.content && (
+            {preview?.preview_type === 'pdf' && preview.preview_url && (
+              <AuthenticatedFileFrame
+                className="document-pdf-frame"
+                src={preview.preview_url}
+                title={preview.file_name}
+              />
+            )}
+            {preview &&
+              !previewLoading &&
+              preview.preview_type !== 'pdf' &&
+              !preview.content && (
               <Empty description="该文档没有可显示的文本内容" />
             )}
             {preview?.content &&
@@ -462,6 +517,218 @@ function DocTab({ kbId }: { kbId: string }) {
           </div>
         </Spin>
       </Modal>
+    </div>
+  )
+}
+
+function formatRetrievalScore(value: number | null) {
+  return value === null || value === undefined ? '—' : value.toFixed(4)
+}
+
+// ──────────── 检索验证 Tab ────────────
+function RetrievalValidationTab({ kbId }: { kbId: string }) {
+  const [topK, setTopK] = useState(8)
+  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState<RetrievalValidationData | null>(null)
+
+  const runValidation = async (query: string) => {
+    if (!query.trim()) {
+      setData(null)
+      return
+    }
+    setLoading(true)
+    try {
+      const response = await documentApi.validateRetrieval(query.trim(), kbId, topK)
+      setData(response.data)
+    } catch (error) {
+      message.error((error as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="retrieval-validation">
+      <Alert
+        type="info"
+        showIcon
+        message="验证知识库的真实召回结果"
+        description="输入问题或关键词，查看向量召回、BM25、融合、Rerank、命中子块、父块和原始 Block。结果严格限定在当前知识库。"
+        style={{ marginBottom: 16 }}
+      />
+      <div className="retrieval-validation-toolbar">
+        <Search
+          placeholder="例如：文档中费用明细是多少？"
+          enterButton="开始验证"
+          allowClear
+          loading={loading}
+          onSearch={runValidation}
+        />
+        <Space>
+          <Typography.Text type="secondary">TopK</Typography.Text>
+          <InputNumber
+            min={1}
+            max={20}
+            value={topK}
+            onChange={(value) => setTopK(value || 8)}
+          />
+        </Space>
+      </div>
+
+      <Spin spinning={loading}>
+        {!data ? (
+          <Empty
+            className="retrieval-validation-empty"
+            description="输入问题后查看检索链路"
+          />
+        ) : (
+          <div className="retrieval-validation-results">
+            <div className="retrieval-validation-summary">
+              <Space wrap>
+                <Tag color="blue">召回 {data.results.length} 条</Tag>
+                <Tag>向量权重 {data.vector_weight}</Tag>
+                <Tag>BM25 权重 {data.bm25_weight}</Tag>
+                <Tag color={data.rerank_used ? 'green' : 'default'}>
+                  Rerank {data.rerank_used ? '已启用' : '未启用'}
+                </Tag>
+              </Space>
+            </div>
+            {data.rerank_error && (
+              <Alert
+                type="warning"
+                showIcon
+                message="Rerank 失败，已回退融合排序"
+                description={data.rerank_error}
+              />
+            )}
+            {data.results.length === 0 ? (
+              <Empty description="当前知识库没有召回结果" />
+            ) : (
+              data.results.map((hit) => (
+                <Card
+                  key={hit.chunk_id}
+                  className="retrieval-validation-card"
+                  title={
+                    <Space wrap>
+                      <Tag color="blue">Top {hit.rank}</Tag>
+                      <span>{hit.doc_name || '未知文档'}</span>
+                      {hit.page_start && (
+                        <Typography.Text type="secondary">
+                          第 {hit.page_start}
+                          {hit.page_end && hit.page_end !== hit.page_start
+                            ? `–${hit.page_end}`
+                            : ''}{' '}
+                          页
+                        </Typography.Text>
+                      )}
+                    </Space>
+                  }
+                >
+                  <Descriptions
+                    size="small"
+                    column={{ xs: 1, sm: 2, lg: 4 }}
+                    items={[
+                      {
+                        key: 'vector',
+                        label: '向量余弦',
+                        children: formatRetrievalScore(hit.scores.vector_score),
+                      },
+                      {
+                        key: 'bm25',
+                        label: 'BM25',
+                        children: formatRetrievalScore(hit.scores.bm25_score),
+                      },
+                      {
+                        key: 'fusion',
+                        label: '融合分',
+                        children: formatRetrievalScore(hit.scores.fusion_score),
+                      },
+                      {
+                        key: 'rerank',
+                        label: 'Rerank',
+                        children: formatRetrievalScore(hit.scores.rerank_score),
+                      },
+                      {
+                        key: 'ranks',
+                        label: '阶段排名',
+                        children: `向量 ${hit.stage_ranks.vector_rank ?? '—'} / BM25 ${hit.stage_ranks.bm25_rank ?? '—'} / 融合 ${hit.stage_ranks.fusion_rank ?? '—'} / 最终 ${hit.stage_ranks.final_rank}`,
+                        span: 2,
+                      },
+                      {
+                        key: 'parser',
+                        label: '解析器',
+                        children: `${hit.parser_name || '未知'}${hit.parser_version ? ` ${hit.parser_version}` : ''}`,
+                      },
+                      {
+                        key: 'type',
+                        label: 'Block 类型',
+                        children: hit.block_types.join(', ') || '—',
+                      },
+                    ]}
+                  />
+
+                  {hit.heading_path.length > 0 && (
+                    <div className="retrieval-heading-path">
+                      标题路径：{hit.heading_path.join(' / ')}
+                    </div>
+                  )}
+                  {hit.warnings.length > 0 && (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      message={hit.warnings.join('；')}
+                      style={{ marginTop: 12 }}
+                    />
+                  )}
+
+                  <Collapse
+                    className="retrieval-validation-collapse"
+                    items={[
+                      {
+                        key: 'child',
+                        label: `命中 Child Chunk（index ${hit.chunk_index}）`,
+                        children: <div className="retrieval-content">{hit.child_content}</div>,
+                      },
+                      {
+                        key: 'parent',
+                        label: 'Parent 上下文',
+                        children: <div className="retrieval-content">{hit.parent_content}</div>,
+                      },
+                      {
+                        key: 'blocks',
+                        label: `原始 Block（${hit.blocks.length}）`,
+                        children:
+                          hit.blocks.length > 0 ? (
+                            <div className="retrieval-block-list">
+                              {hit.blocks.map((block) => (
+                                <div key={block.block_id} className="retrieval-block-item">
+                                  <Space wrap size={4}>
+                                    <Tag>{block.block_type}</Tag>
+                                    <Typography.Text type="secondary">
+                                      Block #{block.block_order}
+                                    </Typography.Text>
+                                    {block.page_start && (
+                                      <Typography.Text type="secondary">
+                                        第 {block.page_start} 页
+                                      </Typography.Text>
+                                    )}
+                                  </Space>
+                                  <div className="retrieval-content">{block.content}</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="旧数据暂无 Block" />
+                          ),
+                      },
+                    ]}
+                  />
+                </Card>
+              ))
+            )}
+          </div>
+        )}
+      </Spin>
     </div>
   )
 }

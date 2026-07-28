@@ -25,7 +25,7 @@ async def lifespan(_: FastAPI):
     except Exception as e:
         logger.error("数据库自动迁移失败，请检查迁移脚本或手动执行 alembic upgrade head: %s", e)
     # 启动：初始化 ES 索引
-    from app.core.rag.es_index import ensure_index
+    from app.core.rag.indexing.es_index import ensure_index
 
     try:
         await ensure_index()

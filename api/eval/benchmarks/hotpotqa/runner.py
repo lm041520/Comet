@@ -16,8 +16,13 @@ import uuid
 from collections import Counter
 from typing import Any
 
-from app.core.rag.es_index import CHUNK_TYPE_CHILD, CHUNKS_INDEX, ensure_index
-from app.core.rag.es_store import build_chunk_doc, bulk_index
+from app.core.rag.indexing import (
+    CHUNKS_INDEX,
+    CHUNK_TYPE_CHILD,
+    build_chunk_doc,
+    bulk_index,
+    ensure_index,
+)
 from app.db.elastic import get_es
 
 from eval import clients

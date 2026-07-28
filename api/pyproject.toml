@@ -48,10 +48,13 @@ dependencies = [
     "json-repair>=0.60.1",
     # ===== 评测：HuggingFace datasets（仅 eval/ 用到，但放主依赖便于 uv 同步） =====
     "datasets>=3.2.0",
+    "docling==2.79.0",
+    "onnxruntime>=1.20,<2",
 ]
 
 [dependency-groups]
 dev = [
+    "pytest>=8.3.0",
     "ruff==0.8.4",
 ]
 

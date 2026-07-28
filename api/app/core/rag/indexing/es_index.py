@@ -1,8 +1,9 @@
-"""Elasticsearch 索引定义与初始化。
+"""RAG Elasticsearch 索引定义与初始化。
 
 统一索引 comet_chunks（个人版数据量小，单索引 + user_id 过滤足够）。
 向量维度固定 1024（通义 text-embedding-v3）。
 """
+
 from app.config import settings
 from app.core.logging import get_logger
 from app.db.elastic import get_es
@@ -28,6 +29,13 @@ _MAPPING = {
             "chunk_id": {"type": "keyword"},
             "chunk_type": {"type": "keyword"},  # child | parent | image_desc
             "parent_id": {"type": "keyword"},  # child 指向其 parent chunk_id
+            "block_ids": {"type": "keyword"},
+            "block_types": {"type": "keyword"},
+            "page_start": {"type": "integer"},
+            "page_end": {"type": "integer"},
+            "heading_path": {"type": "keyword"},
+            "chunk_index": {"type": "integer"},
+            "parser_name": {"type": "keyword"},
             # content 用 IK 中文分词：写入 ik_max_word（细粒度），查询 ik_smart（粗粒度）
             "content": {
                 "type": "text",
@@ -65,6 +73,8 @@ async def ensure_index() -> None:
         await es.indices.create(index=CHUNKS_INDEX, body=_MAPPING)
         logger.info("创建 ES 索引: %s", CHUNKS_INDEX)
         return
+
+    await _ensure_structured_fields(es)
 
     # 已存在：检查 kb_id 字段类型
     kb_type = await _kb_id_type(es)
@@ -104,6 +114,31 @@ async def _kb_id_type(es) -> str | None:
     except Exception as e:
         logger.warning("读取 ES mapping 失败: %s", e)
         return None
+
+
+async def _ensure_structured_fields(es) -> None:
+    """为存量索引增量补齐 Block 追溯字段。"""
+    properties = {
+        name: config
+        for name, config in _MAPPING["mappings"]["properties"].items()
+        if name
+        in {
+            "block_ids",
+            "block_types",
+            "page_start",
+            "page_end",
+            "heading_path",
+            "chunk_index",
+            "parser_name",
+        }
+    }
+    try:
+        await es.indices.put_mapping(
+            index=CHUNKS_INDEX,
+            body={"properties": properties},
+        )
+    except Exception as exc:
+        logger.warning("补齐 ES Block 追溯字段失败: %s", exc)
 
 
 async def _rebuild_index_fix_kb_id(es) -> None:

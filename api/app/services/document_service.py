@@ -1,4 +1,5 @@
 """知识库文档业务服务：上传/网页导入/列表/状态/重试/删除/检索。"""
+import hashlib
 import uuid
 from pathlib import Path
 
@@ -6,9 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BizError
 from app.core.logging import get_logger
-from app.core.rag.es_store import delete_by_source
-from app.core.rag.parser import SUPPORTED_EXTS
-from app.core.rag.search import hybrid_search
+from app.core.rag.ingestion import parse_document_structured
+from app.core.rag.ingestion.parsers.plain_parser import decode_text
+from app.core.rag.ingestion.router import ParserRouter
+from app.core.rag.indexing.es_store import delete_by_source
+from app.core.rag.retrieval import hybrid_search, hybrid_search_with_trace
 from app.core.storage import build_file_key, get_storage
 from app.models.document_model import (
     DOC_STATUS_PENDING,
@@ -21,10 +24,12 @@ from app.repositories.tag_repository import TagRepository
 logger = get_logger(__name__)
 
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+SUPPORTED_EXTS = ParserRouter().supported_exts
 
 
 class DocumentService:
     PREVIEW_MAX_CHARS = 80000  # 文档预览最大返回字符数（超出截断）
+    PREVIEW_URL_EXPIRES_SECONDS = 600
 
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -77,6 +82,7 @@ class DocumentService:
             file_key=file_key,
             source_type="file",
             status=DOC_STATUS_PENDING,
+            content_hash=hashlib.sha256(content).hexdigest(),
         )
         await self.repo.create(doc)
         await self._dispatch_parse(doc_id)
@@ -92,7 +98,8 @@ class DocumentService:
         title, text = await fetch_url_content(url)
         doc_id = uuid.uuid4()
         file_key = build_file_key(str(user_id), "documents", str(doc_id), ".txt")
-        await get_storage().save(file_key, text.encode("utf-8"))
+        encoded_text = text.encode("utf-8")
+        await get_storage().save(file_key, encoded_text)
 
         doc = Document(
             id=doc_id,
@@ -100,11 +107,12 @@ class DocumentService:
             kb_id=resolved_kb,
             file_name=f"{title}.txt",
             file_ext=".txt",
-            file_size=len(text.encode("utf-8")),
+            file_size=len(encoded_text),
             file_key=file_key,
             source_type="url",
             source_url=url,
             status=DOC_STATUS_PENDING,
+            content_hash=hashlib.sha256(encoded_text).hexdigest(),
         )
         await self.repo.create(doc)
         await self._dispatch_parse(doc_id)
@@ -132,11 +140,19 @@ class DocumentService:
     async def get_detail(self, user_id: uuid.UUID, doc_id: uuid.UUID) -> Document:
         return await self._get_or_404(user_id, doc_id)
 
-    async def retry(self, user_id: uuid.UUID, doc_id: uuid.UUID) -> Document:
+    async def retry(
+        self,
+        user_id: uuid.UUID,
+        doc_id: uuid.UUID,
+        preferred_parser: str = "auto",
+    ) -> Document:
         doc = await self._get_or_404(user_id, doc_id)
+        if preferred_parser not in {"auto", "plain", "pymupdf", "docling"}:
+            raise BizError("不支持的解析器", code=3007)
         doc.status = DOC_STATUS_PENDING
         doc.progress = 0.0
         doc.error_msg = None
+        doc.preferred_parser = preferred_parser
         await self.repo.save(doc)
         await self._dispatch_parse(doc_id)
         return doc
@@ -158,7 +174,10 @@ class DocumentService:
         query: str,
         top_k: int,
         tags: list[str] | None,
+        kb_id: uuid.UUID | None = None,
     ) -> list[dict]:
+        if kb_id is not None and not await self.kb_repo.get(user_id, kb_id):
+            raise BizError("知识库不存在", code=3040, status_code=404)
         return await hybrid_search(
             self.session,
             user_id,
@@ -166,13 +185,31 @@ class DocumentService:
             top_k=top_k,
             tags=tags,
             source_type="document",
+            kb_ids=[str(kb_id)] if kb_id else None,
+        )
+
+    async def validate_retrieval(
+        self,
+        user_id: uuid.UUID,
+        kb_id: uuid.UUID,
+        query: str,
+        top_k: int,
+    ) -> dict:
+        if not await self.kb_repo.get(user_id, kb_id):
+            raise BizError("知识库不存在", code=3040, status_code=404)
+        return await hybrid_search_with_trace(
+            self.session,
+            user_id,
+            query,
+            kb_id=kb_id,
+            top_k=top_k,
         )
 
     async def move_to_kb(
         self, user_id: uuid.UUID, doc_id: uuid.UUID, kb_id: uuid.UUID
     ) -> Document:
         """把文档移动到另一个知识库，并同步回写 ES chunk 的 kb_id。"""
-        from app.core.rag.es_store import update_kb_by_source
+        from app.core.rag.indexing.es_store import update_kb_by_source
 
         doc = await self._get_or_404(user_id, doc_id)
         kb = await self.kb_repo.get(user_id, kb_id)
@@ -187,27 +224,42 @@ class DocumentService:
         return doc
 
     async def preview(self, user_id: uuid.UUID, doc_id: uuid.UUID) -> dict:
-        """读取文档原文内容供查看：md/txt 保留原文，pdf/docx/html 提取纯文本。
+        """获取原文件预览：PDF 返回鉴权预览地址，其余格式返回文本内容。
 
-        从对象存储取原始文件按类型解析，超长截断（带 truncated 标记）。
+        PDF 不重新执行结构化解析；上传时的 Block/Chunk 与预览职责保持分离。
         """
-        from app.core.rag.parser import decode_text, parse_document
-
         doc = await self._get_or_404(user_id, doc_id)
+        ext = (doc.file_ext or "").lower()
+        is_markdown = ext in (".md", ".markdown")
+        storage = get_storage()
+        if ext == ".pdf":
+            expires = self.PREVIEW_URL_EXPIRES_SECONDS
+            return {
+                "id": str(doc.id),
+                "file_name": doc.file_name,
+                "file_ext": ext,
+                "preview_type": "pdf",
+                "preview_url": f"/api/documents/{doc.id}/preview-file",
+                "download_url": storage.get_url(doc.file_key, expires=expires),
+                "expires_in": expires,
+                "is_markdown": False,
+                "source_url": doc.source_url,
+                "content": "",
+                "truncated": False,
+            }
+
         try:
-            raw = await get_storage().get(doc.file_key)
+            raw = await storage.get(doc.file_key)
         except Exception as e:
             logger.warning("读取文档原文失败: id=%s err=%s", doc_id, e)
             raise BizError("原始文件读取失败，可能已被清理", code=3033) from e
 
-        ext = (doc.file_ext or "").lower()
-        is_markdown = ext in (".md", ".markdown")
         try:
             if is_markdown or ext == ".txt":
                 # 保留原始文本（markdown 交前端渲染，纯文本原样展示）
                 text = decode_text(raw)
             else:
-                text = parse_document(ext, raw)
+                text = parse_document_structured(ext, raw).text
         except Exception as e:
             logger.warning("文档预览解析失败: id=%s err=%s", doc_id, e)
             raise BizError(f"内容解析失败：{e}", code=3034) from e
@@ -220,11 +272,29 @@ class DocumentService:
             "id": str(doc.id),
             "file_name": doc.file_name,
             "file_ext": ext,
+            "preview_type": "text",
+            "preview_url": None,
+            "download_url": None,
+            "expires_in": None,
             "is_markdown": is_markdown,
             "source_url": doc.source_url,
             "content": text,
             "truncated": truncated,
         }
+
+    async def get_preview_file(
+        self, user_id: uuid.UUID, doc_id: uuid.UUID
+    ) -> tuple[Document, bytes]:
+        """读取 PDF 原始字节供浏览器预览，不触发结构化解析或切片。"""
+        doc = await self._get_or_404(user_id, doc_id)
+        if (doc.file_ext or "").lower() != ".pdf":
+            raise BizError("仅 PDF 文件支持原文件预览", code=3035, status_code=400)
+        try:
+            content = await get_storage().get(doc.file_key)
+        except Exception as e:
+            logger.warning("读取 PDF 预览原文件失败: id=%s err=%s", doc_id, e)
+            raise BizError("原始文件读取失败，可能已被清理", code=3033) from e
+        return doc, content
 
     async def to_out_dict(self, doc: Document) -> dict:
         tags = await self.tag_repo.get_document_tags(doc.id)
@@ -240,6 +310,13 @@ class DocumentService:
             "progress": doc.progress,
             "chunk_num": doc.chunk_num,
             "error_msg": doc.error_msg,
+            "content_hash": doc.content_hash,
+            "preferred_parser": doc.preferred_parser,
+            "parser_name": doc.parser_name,
+            "parser_version": doc.parser_version,
+            "parse_status": doc.parse_status,
+            "parse_summary": doc.parse_summary or {},
+            "parsed_at": doc.parsed_at.isoformat() if doc.parsed_at else None,
             "tags": tags,
             "created_at": doc.created_at.isoformat(),
         }

@@ -4,9 +4,10 @@
 """
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.postgres import Base
@@ -46,6 +47,19 @@ class Document(Base):
     progress: Mapped[float] = mapped_column(Float, default=0.0)
     chunk_num: Mapped[int] = mapped_column(Integer, default=0)
     error_msg: Mapped[str | None] = mapped_column(Text, nullable=True)
+    content_hash: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )
+    preferred_parser: Mapped[str] = mapped_column(String(16), default="auto")
+    parser_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    parser_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    parse_status: Mapped[str | None] = mapped_column(
+        String(16), nullable=True, index=True
+    )
+    parse_summary: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    parsed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

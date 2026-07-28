@@ -15,7 +15,7 @@ from app.config import settings
 from app.core.llm.resolver import get_client_for_type
 from app.core.logging import get_logger
 from app.core.memory.retrieval.searcher import search_memory
-from app.core.rag.search import hybrid_search
+from app.core.rag.retrieval import hybrid_search
 
 logger = get_logger(__name__)
 

@@ -5,7 +5,7 @@
 """
 import re
 
-from app.core.rag.chunker import count_tokens
+from app.core.rag.chunking.block_chunker import count_tokens
 
 # 记忆分块目标 token 数
 MEMORY_CHUNK_TOKENS = 512

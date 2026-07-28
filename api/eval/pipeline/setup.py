@@ -8,9 +8,15 @@ from pathlib import Path
 
 from app.core.memory.extraction.orchestrator import run_extraction
 from app.core.memory.graph_schema import ensure_graph_schema
-from app.core.rag.chunker import chunk_parent_child
-from app.core.rag.es_index import CHUNK_TYPE_CHILD, CHUNK_TYPE_PARENT, ensure_index
-from app.core.rag.es_store import build_chunk_doc, bulk_index, delete_by_source
+from app.core.rag.chunking import chunk_parent_child
+from app.core.rag.indexing import (
+    CHUNK_TYPE_CHILD,
+    CHUNK_TYPE_PARENT,
+    build_chunk_doc,
+    bulk_index,
+    delete_by_source,
+    ensure_index,
+)
 from eval.eval_config import EVAL_USER_ID
 
 _FIXTURES = Path(__file__).parent.parent / "fixtures"
